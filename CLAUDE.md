@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Claudest is a curated Claude Code plugin marketplace containing two plugins: **claude-memory** (conversation memory with FTS5 search and context injection) and **claude-utilities** (web-to-markdown via ezycopy). There is no build system, test runner, or package manager — scripts are Python 3 stdlib-only and tested through real usage.
+Claudest is a curated Claude Code plugin marketplace containing two plugins: **claude-memory** (conversation memory with full-text search and context injection) and **claude-utilities** (web-to-markdown via ezycopy). There is no build system or package manager — plugin runtime is Python 3.7+ stdlib-only. Tests use pytest with hypothesis (dev dependencies only).
 
 ## Development Commands
 
@@ -32,11 +32,11 @@ Each plugin follows the Claude Code plugin convention: `.claude-plugin/plugin.js
 
 ### claude-memory Hook Lifecycle
 
-On **SessionStart**, two hooks fire in order: `memory-setup.sh` creates the `~/.claude-memory/` directory and kicks off a background import if the DB doesn't exist, then `memory-context.py` (on `startup|clear` events only) queries recent sessions and injects them as additional context via `hookSpecificOutput`. On **Stop**, `memory-sync.sh` spawns `sync_current.py` in the background (`nohup ... & disown`) to incrementally sync the current session to the DB without blocking shutdown.
+On **SessionStart**, two hooks fire in order: `memory-setup.py` creates the `~/.claude-memory/` directory and kicks off a background import if the DB doesn't exist, then `memory-context.py` (on `startup|clear` events only) queries recent sessions and injects them as additional context via `hookSpecificOutput`. On **Stop**, `memory-sync.py` writes hook input to a temp file and spawns `sync_current.py --input-file` in the background to incrementally sync the current session to the DB without blocking shutdown. All hooks are Python (no bash) for cross-platform compatibility.
 
 ### Database (v3 Schema)
 
-SQLite at `~/.claude-memory/conversations.db`. The key design: messages are stored once per session (deduped), and branches (from conversation rewinds) are tracked via a many-to-many `branch_messages` table. Two FTS5 indexes provide full-text search: `messages_fts` indexes individual messages, while `branches_fts` indexes aggregated branch content (all messages concatenated per branch) for BM25-ranked session search. Schema is defined in `memory_lib/db.py:SCHEMA` and auto-migrated on connection — if the schema version is outdated, the DB is deleted and recreated.
+SQLite at `~/.claude-memory/conversations.db` with WAL mode and 5s busy_timeout for concurrent access safety. The key design: messages are stored once per session (deduped), and branches (from conversation rewinds) are tracked via a many-to-many `branch_messages` table. Full-text search uses a cascade: FTS5 (best, BM25 ranking) → FTS4 (MATCH + snippet, no BM25) → LIKE fallback (no stemming). Schema is split into `SCHEMA_CORE` (tables/indexes) and `SCHEMA_FTS5`/`SCHEMA_FTS4` variants, applied conditionally based on `detect_fts_support()`. Auto-migrated on connection — if the schema version is outdated, the DB is deleted and recreated.
 
 Tables: `projects`, `sessions`, `branches`, `messages`, `branch_messages`, `import_log`, `messages_fts` (virtual), `branches_fts` (virtual).
 
@@ -52,4 +52,4 @@ Tables: `projects`, `sessions`, `branches`, `messages`, `branch_messages`, `impo
 
 Commit messages use conventional commits: `feat(memory):`, `fix(memory):`, `chore(memory):`, `docs:`, `refactor(memory):`. Version is tracked in two places that must stay in sync: each plugin's `.claude-plugin/plugin.json` and the root `.claude-plugin/marketplace.json`. Always bump version before pushing changes.
 
-Settings live in `~/.claude-memory/settings.local.md` (YAML frontmatter), with defaults defined in `memory_lib/db.py:DEFAULT_SETTINGS`.
+Settings are hardcoded defaults in `memory_lib/db.py:DEFAULT_SETTINGS` (the YAML settings file was removed since PyYAML is not stdlib and settings were silently ignored for most users).

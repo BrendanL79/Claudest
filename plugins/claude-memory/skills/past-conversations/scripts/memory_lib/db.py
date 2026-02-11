@@ -3,22 +3,17 @@
 Database connection, schema management, settings, and logging.
 """
 
+from __future__ import annotations
+
 import logging
 import sqlite3
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional
 
-try:
-    import yaml
-    HAS_YAML = True
-except ImportError:
-    HAS_YAML = False
-
 # Default paths
 DEFAULT_DB_PATH = Path.home() / ".claude-memory" / "conversations.db"
 DEFAULT_PROJECTS_DIR = Path.home() / ".claude" / "projects"
-DEFAULT_SETTINGS_PATH = Path.home() / ".claude-memory" / "settings.local.md"
 DEFAULT_LOG_PATH = Path.home() / ".claude-memory" / "memory.log"
 
 # Default settings
@@ -32,7 +27,8 @@ DEFAULT_SETTINGS = {
 }
 
 # Database schema — v3: messages stored once, branches as separate index
-SCHEMA = """
+# Split into core (tables/indexes) and FTS variants for compatibility
+SCHEMA_CORE = """
 -- Projects table (derived from directory structure)
 CREATE TABLE IF NOT EXISTS projects (
   id INTEGER PRIMARY KEY,
@@ -100,7 +96,19 @@ CREATE TABLE IF NOT EXISTS branch_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_branch_messages_message ON branch_messages(message_id);
 
--- FTS5 full-text search (auto-synced via triggers)
+-- Import tracking
+CREATE TABLE IF NOT EXISTS import_log (
+  id INTEGER PRIMARY KEY,
+  file_path TEXT UNIQUE NOT NULL,
+  file_hash TEXT,
+  imported_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  messages_imported INTEGER DEFAULT 0
+);
+
+"""
+
+# FTS5 schema (best: porter stemming + unicode61, BM25 ranking)
+SCHEMA_FTS5 = """
 CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
   content,
   content=messages,
@@ -119,7 +127,6 @@ CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
   INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
 END;
 
--- Branch-level FTS5 (aggregated content per branch, ranked by BM25)
 CREATE VIRTUAL TABLE IF NOT EXISTS branches_fts USING fts5(
   aggregated_content,
   content=branches,
@@ -137,37 +144,67 @@ CREATE TRIGGER IF NOT EXISTS branches_au AFTER UPDATE ON branches BEGIN
   INSERT INTO branches_fts(branches_fts, rowid, aggregated_content) VALUES('delete', old.id, old.aggregated_content);
   INSERT INTO branches_fts(rowid, aggregated_content) VALUES (new.id, new.aggregated_content);
 END;
+"""
 
--- Import tracking
-CREATE TABLE IF NOT EXISTS import_log (
-  id INTEGER PRIMARY KEY,
-  file_path TEXT UNIQUE NOT NULL,
-  file_hash TEXT,
-  imported_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  messages_imported INTEGER DEFAULT 0
+# FTS4 schema (fallback: porter stemming, no BM25 but supports MATCH + snippet)
+SCHEMA_FTS4 = """
+CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts4(
+  content,
+  content=messages,
+  tokenize=porter
 );
 
--- Views
-CREATE VIEW IF NOT EXISTS search_results AS
-SELECT m.id, m.timestamp, m.role, m.content, s.uuid as session_uuid, p.name as project_name, p.path as project_path
-FROM messages m JOIN sessions s ON m.session_id = s.id JOIN projects p ON s.project_id = p.id;
+CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
+  INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+END;
+CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
+  INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
+END;
+CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
+  INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
+  INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+END;
 
-CREATE VIEW IF NOT EXISTS recent_conversations AS
-SELECT s.uuid as session_uuid, b.leaf_uuid as branch_id, b.is_active as is_active_branch,
-       p.name as project, b.started_at, b.ended_at,
-       b.exchange_count, b.files_modified, b.commits, s.git_branch
-FROM sessions s
-JOIN branches b ON b.session_id = s.id
-JOIN projects p ON s.project_id = p.id
-ORDER BY b.ended_at DESC;
+CREATE VIRTUAL TABLE IF NOT EXISTS branches_fts USING fts4(
+  aggregated_content,
+  content=branches,
+  tokenize=porter
+);
+
+CREATE TRIGGER IF NOT EXISTS branches_ai AFTER INSERT ON branches BEGIN
+  INSERT INTO branches_fts(rowid, aggregated_content) VALUES (new.id, new.aggregated_content);
+END;
+CREATE TRIGGER IF NOT EXISTS branches_ad AFTER DELETE ON branches BEGIN
+  INSERT INTO branches_fts(branches_fts, rowid, aggregated_content) VALUES('delete', old.id, old.aggregated_content);
+END;
+CREATE TRIGGER IF NOT EXISTS branches_au AFTER UPDATE ON branches BEGIN
+  INSERT INTO branches_fts(branches_fts, rowid, aggregated_content) VALUES('delete', old.id, old.aggregated_content);
+  INSERT INTO branches_fts(rowid, aggregated_content) VALUES (new.id, new.aggregated_content);
+END;
 """
+
+# Combined schema (core + FTS5) for test fixtures and simple single-shot setup
+SCHEMA = SCHEMA_CORE + SCHEMA_FTS5
+
+
+def detect_fts_support(conn: sqlite3.Connection) -> str | None:
+    """Detect the best available FTS extension."""
+    try:
+        opts = {row[0] for row in conn.execute("PRAGMA compile_options").fetchall()}
+    except Exception:
+        return None
+    if "ENABLE_FTS5" in opts:
+        return "fts5"
+    if "ENABLE_FTS4" in opts or "ENABLE_FTS3" in opts:
+        return "fts4"
+    return None
 
 
 def migrate_db(conn: sqlite3.Connection) -> bool:
     """
     Migrate database to v3 schema (messages-once + branch index).
     Detects old schema by checking if 'branches' table exists.
-    If not, deletes the DB file so memory-setup.sh triggers a fresh import.
+    If not, deletes the DB file so a fresh import is triggered.
     Returns True if migration was performed (DB was deleted and recreated).
     """
     cursor = conn.cursor()
@@ -198,7 +235,14 @@ def migrate_db(conn: sqlite3.Connection) -> bool:
 
     # Reconnect and create fresh schema
     new_conn = sqlite3.connect(str(db_path) if db_path else ":memory:")
-    new_conn.executescript(SCHEMA)
+    new_conn.execute("PRAGMA journal_mode = WAL")
+    new_conn.execute("PRAGMA busy_timeout = 5000")
+    fts = detect_fts_support(new_conn)
+    new_conn.executescript(SCHEMA_CORE)
+    if fts == "fts5":
+        new_conn.executescript(SCHEMA_FTS5)
+    elif fts == "fts4":
+        new_conn.executescript(SCHEMA_FTS4)
     new_conn.commit()
 
     # We can't return the new connection through the old reference,
@@ -207,33 +251,13 @@ def migrate_db(conn: sqlite3.Connection) -> bool:
     return True
 
 
-def load_settings(settings_path: Optional[Path] = None) -> dict:
+def load_settings() -> dict:
     """
-    Load settings from YAML frontmatter in settings file.
-    Returns default settings if file doesn't exist or parsing fails.
+    Return default settings.
+    Previously loaded from YAML frontmatter, but PyYAML is not stdlib
+    so settings were silently ignored for most users.
     """
-    path = settings_path or DEFAULT_SETTINGS_PATH
-    settings = DEFAULT_SETTINGS.copy()
-
-    if not path.exists():
-        return settings
-
-    if not HAS_YAML:
-        return settings
-
-    try:
-        content = path.read_text()
-        # Parse YAML frontmatter (between --- markers)
-        if content.startswith("---"):
-            parts = content.split("---", 2)
-            if len(parts) >= 3:
-                frontmatter = yaml.safe_load(parts[1])  # type: ignore[possibly-undefined]
-                if isinstance(frontmatter, dict):
-                    settings.update(frontmatter)
-    except Exception:
-        pass
-
-    return settings
+    return DEFAULT_SETTINGS.copy()
 
 
 def get_db_path(settings: Optional[dict] = None) -> Path:
@@ -292,19 +316,33 @@ def get_db_connection(settings: Optional[dict] = None) -> sqlite3.Connection:
     """
     Get database connection, initializing schema and running migrations if needed.
     Uses settings-based path if provided.
+    Sets WAL mode and busy_timeout for concurrent access safety.
     """
     db_path = get_db_path(settings)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
+
+    # WAL mode: readers never block writers, writers never block readers
+    conn.execute("PRAGMA journal_mode = WAL")
+    # busy_timeout: wait up to 5s on writer-writer collisions instead of failing
+    conn.execute("PRAGMA busy_timeout = 5000")
 
     # Check if migration needed (old schema -> v3)
     migrated = migrate_db(conn)
     if migrated:
         # Connection was closed during migration, reconnect
         conn = sqlite3.connect(db_path)
-    else:
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA busy_timeout = 5000")
+
+    if not migrated:
         # Apply schema (handles fresh databases, idempotent)
-        conn.executescript(SCHEMA)
+        fts = detect_fts_support(conn)
+        conn.executescript(SCHEMA_CORE)
+        if fts == "fts5":
+            conn.executescript(SCHEMA_FTS5)
+        elif fts == "fts4":
+            conn.executescript(SCHEMA_FTS4)
         conn.commit()
 
     # Add any missing columns (e.g. tool_summary)

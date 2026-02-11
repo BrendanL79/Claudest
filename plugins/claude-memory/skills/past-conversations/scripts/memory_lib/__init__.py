@@ -7,3 +7,5 @@ Submodules:
   parsing    — JSONL parsing, branch detection, metadata extraction
   formatting — Session formatting, time/path utilities
 """
+
+from __future__ import annotations

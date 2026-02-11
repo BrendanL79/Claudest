@@ -5,6 +5,8 @@ Retrieve recent conversation sessions from the memory database.
 Returns markdown by default (token-efficient), JSON with --format json.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import sqlite3
@@ -134,6 +136,8 @@ def main():
 
     try:
         conn = sqlite3.connect(args.db)
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA busy_timeout = 5000")
         sessions = get_recent_sessions(conn, n=n, sort_order=args.sort_order,
                                         before=args.before, after=args.after,
                                         projects=projects, verbose=args.verbose,

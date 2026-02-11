@@ -11,6 +11,8 @@ Selection Algorithm:
 Output: JSON with hookSpecificOutput for context injection
 """
 
+from __future__ import annotations
+
 import json
 import re
 import sqlite3
@@ -213,6 +215,8 @@ def main():
 
     try:
         conn = sqlite3.connect(db_path)
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA busy_timeout = 5000")
         project_key = get_project_key(cwd)
         max_sessions = settings.get("max_context_sessions", 2)
         sessions = select_sessions(conn, project_key, session_id, max_sessions)

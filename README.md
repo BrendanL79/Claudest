@@ -69,7 +69,7 @@ The **/claude-memory** command gives you direct control: sync conversations manu
 
 **How it works:**
 - Auto-syncs every session to `~/.claude-memory/conversations.db`
-- FTS5 full-text search with Porter stemming and BM25 ranking
+- Full-text search with Porter stemming (FTS5 with BM25 ranking, falls back to FTS4 or LIKE on systems without FTS5)
 - Cross-project search by default, filter by project when needed
 - Lens system for structured analysis (restore context, extract learnings, find gaps, run retros)
 - Triggers naturally: "remember when", "continue where we left off", "what did we discuss"

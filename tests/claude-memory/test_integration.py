@@ -74,9 +74,8 @@ def _setup_db_and_import(filepath: Path) -> sqlite3.Connection:
         cursor.execute("""
             INSERT INTO branches (session_id, leaf_uuid, is_active, exchange_count)
             VALUES (?, ?, ?, ?)
-            RETURNING id
         """, (session_id, branch["leaf_uuid"], int(branch["is_active"]), exchange_count))
-        branch_db_id = cursor.fetchone()[0]
+        branch_db_id = cursor.lastrowid
 
         for uuid in branch["uuids"]:
             msg_id = uuid_to_msg_id.get(uuid)

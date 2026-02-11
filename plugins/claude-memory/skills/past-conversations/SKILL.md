@@ -24,6 +24,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/past-conversations/scripts/recent_chats.py 
 | `--project NAME` | Filter by project name(s), comma-separated |
 | `--verbose` | Include files_modified and commits |
 | `--format` | 'markdown' (default) or 'json' |
+| `--include-notifications` | Include task notification messages (hidden by default) |
 
 **Usage guidance:**
 - Use `--n 20` to maximize information gathering
@@ -33,7 +34,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/past-conversations/scripts/recent_chats.py 
 
 ### search_conversations
 
-Search for sessions containing keywords using FTS5 full-text search.
+Search for sessions containing keywords using full-text search (FTS5/FTS4/LIKE cascade).
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/past-conversations/scripts/search_conversations.py --query "keyword"
@@ -46,6 +47,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/past-conversations/scripts/search_conversat
 | `--project NAME` | Filter by project name(s), comma-separated |
 | `--verbose` | Include files_modified and commits |
 | `--format` | 'markdown' (default) or 'json' |
+| `--include-notifications` | Include task notification messages (hidden by default) |
 
 **Output**: Default markdown format (token-efficient):
 ```
@@ -82,7 +84,7 @@ Use `--format json` when structured data is needed.
 
 ## Query Construction
 
-When building search queries from user requests, extract substantive keywords. Search uses branch-level FTS with BM25 ranking — each branch's full conversation text is indexed as one document, so multi-word queries work naturally across message boundaries.
+When building search queries from user requests, extract substantive keywords. Search uses branch-level full-text search — each branch's full conversation text is indexed as one document, so multi-word queries work naturally across message boundaries. BM25 ranking is used when FTS5 is available; falls back to FTS4 or LIKE on older systems.
 
 **Include:** Specific nouns, technologies, concepts, project names, domain terms, unique phrases. More terms improve ranking precision — BM25 weights rare terms higher automatically.
 

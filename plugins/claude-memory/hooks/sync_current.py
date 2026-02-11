@@ -3,13 +3,17 @@
 Incremental sync for current session only.
 Designed to be called from a Stop hook - fast and lightweight.
 
-Reads session_id from stdin (hook input) and only syncs that session file.
+Reads session_id from stdin (or --input-file) and only syncs that session file.
 Detects conversation branches (from rewind) and stores each branch separately.
 
 v3 schema: messages stored once per session, branches as a separate index.
 """
 
+from __future__ import annotations
+
+import argparse
 import json
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -100,8 +104,8 @@ def sync_session(conn: sqlite3.Connection, filepath: Path, project_dir: Path) ->
         ON CONFLICT(uuid) DO UPDATE SET
             git_branch = COALESCE(excluded.git_branch, sessions.git_branch),
             cwd = COALESCE(excluded.cwd, sessions.cwd)
-        RETURNING id
     """, (session_uuid, project_id, meta["git_branch"], meta["cwd"]))
+    cursor.execute("SELECT id FROM sessions WHERE uuid = ?", (session_uuid,))
     session_id = cursor.fetchone()[0]
 
     # Step 2: Insert ALL messages once, dedup by (session_id, uuid)
@@ -215,7 +219,6 @@ def sync_session(conn: sqlite3.Connection, filepath: Path, project_dir: Path) ->
                 INSERT INTO branches (session_id, leaf_uuid, fork_point_uuid, is_active,
                                       started_at, ended_at, exchange_count, files_modified, commits)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                RETURNING id
             """, (
                 session_id,
                 leaf_uuid,
@@ -227,7 +230,7 @@ def sync_session(conn: sqlite3.Connection, filepath: Path, project_dir: Path) ->
                 json.dumps(files) if files else None,
                 json.dumps(commits) if commits else None
             ))
-            branch_db_id = cursor.fetchone()[0]
+            branch_db_id = cursor.lastrowid
 
         # Ensure only one active branch
         if is_active:
@@ -274,6 +277,14 @@ def sync_session(conn: sqlite3.Connection, filepath: Path, project_dir: Path) ->
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Sync current session to memory database")
+    parser.add_argument(
+        "--input-file",
+        type=Path,
+        help="Read hook input from file instead of stdin (used by memory-sync.py wrapper)"
+    )
+    args = parser.parse_args()
+
     # Load settings
     settings = load_settings()
     logger = setup_logging(settings)
@@ -284,11 +295,23 @@ def main():
         print(json.dumps({"continue": True}))
         return
 
-    # Read hook input from stdin
-    try:
-        hook_input = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        hook_input = {}
+    # Read hook input from file or stdin
+    if args.input_file:
+        try:
+            hook_input = json.loads(args.input_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            hook_input = {}
+        finally:
+            # Clean up temp file
+            try:
+                os.unlink(args.input_file)
+            except OSError:
+                pass
+    else:
+        try:
+            hook_input = json.load(sys.stdin)
+        except (json.JSONDecodeError, EOFError):
+            hook_input = {}
 
     session_id = hook_input.get("session_id")
 

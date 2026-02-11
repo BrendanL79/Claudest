@@ -8,6 +8,8 @@ Detects conversation branches (from rewind) and stores each branch separately.
 v3 schema: messages stored once per session, branches as separate index.
 """
 
+from __future__ import annotations
+
 import argparse
 import hashlib
 import json
@@ -22,7 +24,7 @@ sys.path.insert(0, str(SCRIPT_DIR.parent / "skills" / "past-conversations" / "sc
 
 from memory_lib.db import (
     DEFAULT_DB_PATH, DEFAULT_PROJECTS_DIR, get_db_path,
-    get_db_connection, load_settings, setup_logging,
+    get_db_connection, load_settings, setup_logging, detect_fts_support,
 )
 from memory_lib.content import extract_text_content, is_task_notification, is_tool_result
 from memory_lib.parsing import (
@@ -95,8 +97,8 @@ def import_session(
             git_branch = COALESCE(excluded.git_branch, sessions.git_branch),
             cwd = COALESCE(excluded.cwd, sessions.cwd),
             parent_session_id = COALESCE(excluded.parent_session_id, sessions.parent_session_id)
-        RETURNING id
     """, (session_uuid, project_id, parent_session_id, meta["git_branch"], meta["cwd"]))
+    cursor.execute("SELECT id FROM sessions WHERE uuid = ?", (session_uuid,))
     session_id = cursor.fetchone()[0]
 
     # Step 2: Insert ALL messages once (delete + reinsert for re-import)
@@ -181,7 +183,6 @@ def import_session(
             INSERT INTO branches (session_id, leaf_uuid, fork_point_uuid, is_active,
                                   started_at, ended_at, exchange_count, files_modified, commits)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            RETURNING id
         """, (
             session_id,
             leaf_uuid,
@@ -193,7 +194,7 @@ def import_session(
             json.dumps(files) if files else None,
             json.dumps(commits) if commits else None
         ))
-        branch_db_id = cursor.fetchone()[0]
+        branch_db_id = cursor.lastrowid
 
         # Insert branch_messages mapping
         for uuid in branch_uuids:
@@ -260,8 +261,8 @@ def import_project(
         INSERT INTO projects (path, key, name)
         VALUES (?, ?, ?)
         ON CONFLICT(path) DO UPDATE SET key = excluded.key
-        RETURNING id
     """, (project_path, project_key, project_name))
+    cursor.execute("SELECT id FROM projects WHERE path = ?", (project_path,))
     project_id = cursor.fetchone()[0]
 
     sessions_imported = 0
@@ -347,7 +348,9 @@ def main():
     settings = load_settings()
     logger = setup_logging(settings)
 
-    db_path = args.db if args.db != DEFAULT_DB_PATH else get_db_path(settings)
+    if args.db != DEFAULT_DB_PATH:
+        settings["db_path"] = str(args.db)
+    db_path = get_db_path(settings)
     exclude_projects = settings.get("exclude_projects", [])
 
     # Use get_db_connection which handles migration
@@ -381,29 +384,74 @@ def main():
     if args.search:
         cursor = conn.cursor()
         terms = args.search.split()
-        fts_query = " OR ".join(f'"{term}"' for term in terms)
+        fts_level = detect_fts_support(conn)
 
-        sql = """
-            SELECT
-                m.id, m.timestamp, m.role,
-                snippet(messages_fts, 0, '>>>', '<<<', '...', 32) as snippet,
-                m.content, s.uuid as session_uuid,
-                p.name as project_name, p.path as project_path,
-                bm25(messages_fts) as rank
-            FROM messages_fts
-            JOIN messages m ON messages_fts.rowid = m.id
-            JOIN sessions s ON m.session_id = s.id
-            JOIN projects p ON s.project_id = p.id
-            WHERE messages_fts MATCH ?
-        """
-        params: list = [fts_query]
+        if fts_level in ("fts5", "fts4"):
+            fts_query = " OR ".join(f'"{term}"' for term in terms)
 
-        if args.project:
-            sql += " AND p.name LIKE ?"
-            params.append(f"%{args.project}%")
+            if fts_level == "fts5":
+                sql = """
+                    SELECT
+                        m.id, m.timestamp, m.role,
+                        snippet(messages_fts, 0, '>>>', '<<<', '...', 32) as snippet,
+                        m.content, s.uuid as session_uuid,
+                        p.name as project_name, p.path as project_path,
+                        bm25(messages_fts) as rank
+                    FROM messages_fts
+                    JOIN messages m ON messages_fts.rowid = m.id
+                    JOIN sessions s ON m.session_id = s.id
+                    JOIN projects p ON s.project_id = p.id
+                    WHERE messages_fts MATCH ?
+                """
+            else:
+                sql = """
+                    SELECT
+                        m.id, m.timestamp, m.role,
+                        snippet(messages_fts, '>>>', '<<<', '...', -1, 32) as snippet,
+                        m.content, s.uuid as session_uuid,
+                        p.name as project_name, p.path as project_path,
+                        0 as rank
+                    FROM messages_fts
+                    JOIN messages m ON messages_fts.rowid = m.id
+                    JOIN sessions s ON m.session_id = s.id
+                    JOIN projects p ON s.project_id = p.id
+                    WHERE messages_fts MATCH ?
+                """
+            params: list = [fts_query]
 
-        sql += " ORDER BY rank LIMIT ?"
-        params.append(args.limit)
+            if args.project:
+                sql += " AND p.name LIKE ?"
+                params.append(f"%{args.project}%")
+
+            if fts_level == "fts5":
+                sql += " ORDER BY rank LIMIT ?"
+            else:
+                sql += " ORDER BY m.timestamp DESC LIMIT ?"
+            params.append(args.limit)
+
+        else:
+            # LIKE fallback
+            like_clauses = " AND ".join("m.content LIKE ?" for _ in terms)
+            sql = f"""
+                SELECT
+                    m.id, m.timestamp, m.role,
+                    substr(m.content, 1, 200) as snippet,
+                    m.content, s.uuid as session_uuid,
+                    p.name as project_name, p.path as project_path,
+                    0 as rank
+                FROM messages m
+                JOIN sessions s ON m.session_id = s.id
+                JOIN projects p ON s.project_id = p.id
+                WHERE {like_clauses}
+            """
+            params = [f"%{term}%" for term in terms]
+
+            if args.project:
+                sql += " AND p.name LIKE ?"
+                params.append(f"%{args.project}%")
+
+            sql += " ORDER BY m.timestamp DESC LIMIT ?"
+            params.append(args.limit)
 
         cursor.execute(sql, params)
 
@@ -432,6 +480,7 @@ def main():
             return
 
         sessions, messages, skipped = import_project(conn, project_dir, exclude_projects)
+        conn.commit()
         total_sessions += sessions
         total_messages += messages
         total_skipped += skipped
@@ -442,6 +491,7 @@ def main():
                 continue
 
             sessions, messages, skipped = import_project(conn, project_dir, exclude_projects)
+            conn.commit()  # Per-project commit to minimize write-lock window
             total_sessions += sessions
             total_messages += messages
             total_skipped += skipped
@@ -449,7 +499,6 @@ def main():
             if sessions > 0 or messages > 0:
                 print(f"Imported {project_dir.name}: {sessions} branches, {messages} messages")
 
-    conn.commit()
     conn.close()
 
     logger.info(f"Import complete: {total_sessions} branches, {total_messages} messages")

@@ -2,8 +2,6 @@
 
 import sqlite3
 
-import pytest
-
 from memory_lib.db import (
     DEFAULT_SETTINGS,
     SCHEMA,
@@ -26,13 +24,6 @@ class TestSchemaCreation:
         fts_tables = {row[0] for row in cursor.fetchall()}
         assert "messages_fts" in fts_tables
         assert "branches_fts" in fts_tables
-
-    def test_views_exist(self, memory_db):
-        cursor = memory_db.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='view' ORDER BY name")
-        views = {row[0] for row in cursor.fetchall()}
-        assert "search_results" in views
-        assert "recent_conversations" in views
 
     def test_schema_idempotent(self, memory_db):
         """Applying schema twice should not raise."""
@@ -145,9 +136,17 @@ class TestMigrateColumns:
 
 
 class TestLoadSettings:
-    def test_missing_file_returns_defaults(self, tmp_path):
-        settings = load_settings(tmp_path / "nonexistent.md")
+    def test_always_returns_defaults(self):
+        """load_settings always returns hardcoded defaults (YAML was removed)."""
+        settings = load_settings()
         assert settings == DEFAULT_SETTINGS
+
+    def test_returns_copy(self):
+        """Each call should return a fresh copy, not a reference."""
+        s1 = load_settings()
+        s2 = load_settings()
+        s1["max_context_sessions"] = 99
+        assert s2["max_context_sessions"] == 2
 
     def test_default_values(self):
         assert DEFAULT_SETTINGS["auto_inject_context"] is True
@@ -155,38 +154,3 @@ class TestLoadSettings:
         assert DEFAULT_SETTINGS["logging_enabled"] is False
         assert DEFAULT_SETTINGS["sync_on_stop"] is True
         assert isinstance(DEFAULT_SETTINGS["exclude_projects"], list)
-
-    def test_yaml_frontmatter_parsed(self, tmp_path):
-        """Settings from YAML frontmatter should override defaults."""
-        try:
-            import yaml
-        except ImportError:
-            pytest.skip("PyYAML not installed")
-
-        settings_file = tmp_path / "settings.local.md"
-        settings_file.write_text(
-            "---\n"
-            "max_context_sessions: 5\n"
-            "logging_enabled: true\n"
-            "---\n"
-            "# Settings\n"
-            "Some documentation here.\n"
-        )
-        settings = load_settings(settings_file)
-        assert settings["max_context_sessions"] == 5
-        assert settings["logging_enabled"] is True
-        # Non-overridden defaults should persist
-        assert settings["auto_inject_context"] is True
-
-    def test_invalid_yaml_returns_defaults(self, tmp_path):
-        """Malformed YAML should fall back to defaults."""
-        try:
-            import yaml
-        except ImportError:
-            pytest.skip("PyYAML not installed")
-
-        settings_file = tmp_path / "settings.local.md"
-        settings_file.write_text("---\n: : invalid:\n---\n")
-        settings = load_settings(settings_file)
-        # Should not crash, returns defaults (possibly with partial parse)
-        assert isinstance(settings, dict)

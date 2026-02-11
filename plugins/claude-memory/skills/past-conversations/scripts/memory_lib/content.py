@@ -3,6 +3,8 @@
 Message content extraction and tool detection utilities.
 """
 
+from __future__ import annotations
+
 import json
 import re
 

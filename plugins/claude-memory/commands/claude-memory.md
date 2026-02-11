@@ -34,7 +34,7 @@ Then report the result to the user.
 
 ### search <query>
 
-Search conversations using the FTS5 full-text search:
+Search conversations using full-text search:
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/past-conversations/scripts/search_conversations.py" --query "<query>" --max-results 5
