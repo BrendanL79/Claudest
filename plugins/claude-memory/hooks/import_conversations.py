@@ -141,6 +141,11 @@ def import_session(
         if cursor.rowcount > 0:
             total_messages += 1
 
+    # Skip sessions with no extractable messages
+    if total_messages == 0:
+        cursor.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        return -1, 0
+
     # Step 3: Build uuid -> message_id mapping
     cursor.execute(
         "SELECT id, uuid FROM messages WHERE session_id = ? AND uuid IS NOT NULL",
@@ -207,6 +212,12 @@ def import_session(
 
         # Aggregate branch content for FTS
         agg_content = aggregate_branch_content(cursor, branch_db_id)
+        if not agg_content:
+            # No searchable content — remove this branch
+            cursor.execute("DELETE FROM branch_messages WHERE branch_id = ?", (branch_db_id,))
+            cursor.execute("DELETE FROM branches WHERE id = ?", (branch_db_id,))
+            continue
+
         cursor.execute(
             "UPDATE branches SET aggregated_content = ? WHERE id = ?",
             (agg_content, branch_db_id)
@@ -223,6 +234,12 @@ def import_session(
             WHERE b.session_id = ?
         )
     """, (session_id, session_id))
+
+    # If no branches survived, remove the empty session
+    if branches_imported == 0:
+        cursor.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+        cursor.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        return -1, 0
 
     # Step 5: Update import_log
     if log_row:

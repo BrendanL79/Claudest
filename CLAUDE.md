@@ -53,3 +53,5 @@ Tables: `projects`, `sessions`, `branches`, `messages`, `branch_messages`, `impo
 Commit messages use conventional commits: `feat(memory):`, `fix(memory):`, `chore(memory):`, `docs:`, `refactor(memory):`. Version is tracked in two places that must stay in sync: each plugin's `.claude-plugin/plugin.json` and the root `.claude-plugin/marketplace.json`. Always bump version before pushing changes.
 
 Settings are hardcoded defaults in `memory_lib/db.py:DEFAULT_SETTINGS` (the YAML settings file was removed since PyYAML is not stdlib and settings were silently ignored for most users).
+
+Skill descriptions in SKILL.md frontmatter should be short and focused — verbose descriptions pollute the agent's context window since they're loaded whenever the skill triggers.

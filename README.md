@@ -1,125 +1,66 @@
 # Claudest
 
-The only Claude Code plugin marketplace that isn't trash.
-
-## Philosophy
-
-Most plugin marketplaces are filled with half-baked garbage. Skills that are nothing more than wishful thinking—incomplete documents with no scripts, no utilities, no resources. Overcomplicated setups that break on first use. README stars that promise the moon and deliver nothing.
-
-**Claudest is different.**
-
-Every plugin here is something I personally use, build, test, and improve. These aren't weekend experiments or proof-of-concepts. They're tools that have been run hundreds of times across real projects, iterated based on actual friction, and refined until they just work.
-
-If it's in this marketplace, it's battle-tested.
-
----
+A curated Claude Code plugin marketplace. Everything here is something I personally use, build, and iterate on across real projects. If it's in this marketplace, it works.
 
 ## Installation
 
-### Add the Marketplace
+Add the marketplace, then install any plugin:
 
-**Slash command (inside Claude Code):**
 ```
 /plugin marketplace add gupsammy/claudest
-```
-
-**CLI:**
-```bash
-claude plugin marketplace add gupsammy/claudest
-```
-
-### Enable Auto-Updates
-
-Run `/plugin`, go to the **Marketplaces** tab, and toggle **Enable auto-update** for Claudest.
-
-### Install a Plugin
-
-**Slash command:**
-```
 /plugin install claude-memory@claudest
 ```
 
-**CLI:**
-```bash
-claude plugin install claude-memory@claudest
-```
-
----
+To enable auto-updates, run `/plugin`, go to the Marketplaces tab, and toggle auto-update for Claudest.
 
 ## Plugins
 
 ### claude-memory
 
-Conversation memory that actually solves the right problems.
+Conversation memory for Claude Code. Recall what happened yesterday, last week, or three weeks ago.
 
-Most memory solutions are bloated or over-engineered. I built claude-memory to solve the two problems that actually matter:
+LLMs don't carry anything forward between sessions. Every conversation starts blank. Claude Code gives agents core memory (CLAUDE.md files loaded every session), procedural memory (skills and tool definitions), and archival memory (auto memory notes the agent writes for itself). What was missing: recall memory. The ability to search and retrieve actual past conversations.
 
-1. **Immediate context** — Resume exactly where you left off. No manual searching through conversation history.
-2. **Recall** — Find that discussion about OAuth from two weeks ago. Full-text search that just works.
+That's what claude-memory provides. It stores every session in a SQLite database with full-text search (FTS5, BM25 ranking, zero external dependencies) and makes past conversations available to the agent in two ways.
 
-There's a third problem I'm still exploring: **long-term learnings** — extracting facts, preferences, and patterns that persist across projects. This is experimental.
+First, automatic context injection. On every session start, a hook queries recent sessions and injects the most recent meaningful one into context. The agent already knows what you worked on last time before you say a word. This is what makes the plan-in-one-session, implement-in-the-next workflow possible.
 
-No vector search. It felt heavy and unnecessary for most use cases. Still investigating where embeddings actually help and how to do it locally without the latency and storage bloat.
+Second, on-demand search. A past-conversations skill lets the agent (or you) search conversation history by keywords, browse recent sessions, or run structured analyses like retrospectives and gap-finding. Ask "what did we decide about the API design?" and the agent searches your history.
 
-**What's included:**
+The search works because the agent constructs the queries, not you. When you ask about "the database migration," the agent extracts the right keywords, sends them to FTS5, and iterates if the first results aren't good enough. The agent compensates for the simplicity of the storage layer. No vector database, no embedding pipeline, no external dependencies. Just SQLite and Python's standard library.
 
-The **past-conversations** skill handles recall. Ask "what did we discuss about authentication" or "remember when we debugged that API issue" and it searches your history, retrieves relevant sessions, and synthesizes an answer. It also includes a lens system for structured analysis—restore context, extract learnings, find gaps, run retros.
+The plugin also includes an extract-learnings skill, a route from recall into archival memory. It reads past conversations, identifies non-obvious insights and gotchas worth preserving, and proposes placing them at the right layer in the memory hierarchy (CLAUDE.md, MEMORY.md, or topic files) with diffs and rationale. Learnings that would otherwise evaporate when context resets get distilled into persistent knowledge.
 
-The **/claude-memory** command gives you direct control: sync conversations manually, check database stats, search with custom queries, and manage your memory store.
+For the full story behind the architecture, I wrote about the design decisions and what I learned about how agents actually use memory: [What I Learned Building a Memory System for My Coding Agent](https://www.reddit.com/r/ClaudeCode/comments/1r1w397/comment/o5294lk/).
 
-**How it works:**
-- Auto-syncs every session to `~/.claude-memory/conversations.db`
-- Full-text search with Porter stemming (FTS5 with BM25 ranking, falls back to FTS4 or LIKE on systems without FTS5)
-- Cross-project search by default, filter by project when needed
-- Lens system for structured analysis (restore context, extract learnings, find gaps, run retros)
-- Triggers naturally: "remember when", "continue where we left off", "what did we discuss"
-
-**Install:** `/plugin install claude-memory@claudest`
+```
+/plugin install claude-memory@claudest
+```
 
 ---
 
 ### claude-utilities
 
-A growing collection of useful tools.
+Useful tools that don't fit in a specific plugin.
 
-**Current skills:**
-
-**web-to-markdown** — Convert any webpage to clean markdown. Strips ads, navigation, popups, cookie banners—everything except the actual content. Uses [ezycopy](https://github.com/gupsammy/EzyCopy) under the hood.
+Currently includes **web-to-markdown**, which converts any webpage to clean markdown, stripping ads, navigation, popups, and cookie banners. Uses [ezycopy](https://github.com/gupsammy/EzyCopy) under the hood.
 
 ```bash
 # Prerequisite
 curl -sSL https://raw.githubusercontent.com/gupsammy/EzyCopy/main/install.sh | sh
 ```
 
-Triggers: "convert this page to markdown", "extract this webpage", "save this article", "grab content from URL", "scrape this page"
+Triggers on "convert this page to markdown", "extract this webpage", "save this article", "grab content from URL", "scrape this page".
 
-**Install:** `/plugin install claude-utilities@claudest`
-
----
-
-## What's Coming
-
-Both plugins will continue to grow, and new plugins covering different capabilities will be added.
-
-**claude-memory:**
-- Long-term memory and fact extraction (experimental)
-
-**claude-utilities:**
-- More tools as I build and battle-test them
-- If I use it daily, it'll end up here
-
-**New plugins:**
-- Different capabilities as I find gaps in my workflow and build solutions
+```
+/plugin install claude-utilities@claudest
+```
 
 ---
 
 ## Contributing
 
-This isn't a community marketplace where anyone can submit plugins. It's a curated set of tools I personally maintain.
-
-If you have suggestions or find bugs, open an issue. If you want to run your own marketplace with your own battle-tested tools, fork this and make it yours.
-
----
+This is a curated set of tools I personally maintain, not an open-submission marketplace. If you find bugs or have suggestions, open an issue. If you want to run your own marketplace with your own battle-tested tools, fork this and make it yours.
 
 ## License
 

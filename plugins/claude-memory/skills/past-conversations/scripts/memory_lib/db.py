@@ -351,6 +351,7 @@ def get_db_connection(settings: Optional[dict] = None) -> sqlite3.Connection:
     return conn
 
 
+
 def setup_logging(settings: Optional[dict] = None) -> logging.Logger:
     """
     Set up logging with rotation.
