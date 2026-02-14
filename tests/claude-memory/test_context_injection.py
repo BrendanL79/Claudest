@@ -309,17 +309,25 @@ class TestSessionSelection:
         assert selected == []
 
     def test_select_sessions_no_active_branches(self, memory_db: sqlite3.Connection):
-        """Sessions with no active branches should be skipped."""
+        """Sessions with only inactive branches should be skipped, even when
+        other sessions with active branches exist."""
         project_id = self._insert_project(memory_db, "test-proj")
         current_session = str(uuid4())
 
-        # Create session with inactive branch
-        session_id = self._insert_session(memory_db, project_id, uuid="sess-inactive")
-        branch_id = self._insert_branch(memory_db, session_id, exchange_count=3, is_active=0)
-        msg_id = self._insert_message(memory_db, session_id, "user", "msg")
-        self._link_message_to_branch(memory_db, branch_id, msg_id)
+        # Session 1: only has an inactive branch (should be skipped)
+        sess1_id = self._insert_session(memory_db, project_id, uuid="sess-inactive")
+        branch1_id = self._insert_branch(memory_db, sess1_id, exchange_count=3, is_active=0)
+        msg1_id = self._insert_message(memory_db, sess1_id, "user", "inactive msg")
+        self._link_message_to_branch(memory_db, branch1_id, msg1_id)
+
+        # Session 2: has an active branch (should be selected)
+        sess2_id = self._insert_session(memory_db, project_id, uuid="sess-active")
+        branch2_id = self._insert_branch(memory_db, sess2_id, exchange_count=3, is_active=1)
+        msg2_id = self._insert_message(memory_db, sess2_id, "user", "active msg")
+        self._link_message_to_branch(memory_db, branch2_id, msg2_id)
 
         selected = select_sessions(memory_db, "test-proj", current_session, max_sessions=5)
 
-        # Inactive branch should not be selected
-        assert selected == []
+        # Only sess-active should be selected; sess-inactive is excluded by is_active filter
+        assert len(selected) == 1
+        assert selected[0]["uuid"] == "sess-active"

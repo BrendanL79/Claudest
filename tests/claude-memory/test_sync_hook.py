@@ -100,7 +100,11 @@ class TestSyncSessionUpdatesExisting:
     """Test that syncing the same session twice updates rather than duplicates."""
 
     def test_sync_session_updates_existing(self, memory_db_with_project):
-        """Syncing the same session twice should update, not duplicate messages."""
+        """Syncing the same session twice should update, not duplicate messages.
+
+        Verifies both the Python-level dedup (existing_uuids set check)
+        and the overall idempotency of sync_session.
+        """
         conn, project_id = memory_db_with_project
         fixture_path = FIXTURE_DIR / "single_rewind.jsonl"
 
@@ -110,6 +114,7 @@ class TestSyncSessionUpdatesExisting:
             # First sync
             new_count_1 = sync_session(conn, fixture_path, project_dir)
             conn.commit()
+            assert new_count_1 > 0, "First sync should add messages"
 
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM messages")
@@ -117,6 +122,15 @@ class TestSyncSessionUpdatesExisting:
 
             cursor.execute("SELECT COUNT(*) FROM sessions")
             session_count_1 = cursor.fetchone()[0]
+
+            # Record branch structure after first sync
+            cursor.execute("SELECT id, leaf_uuid, is_active FROM branches ORDER BY id")
+            branches_1 = cursor.fetchall()
+
+            # Record message UUIDs (these are what the Python-level dedup tracks)
+            cursor.execute("SELECT uuid FROM messages WHERE uuid IS NOT NULL ORDER BY uuid")
+            uuids_1 = [row[0] for row in cursor.fetchall()]
+            assert len(uuids_1) > 0, "Messages should have UUIDs for dedup tracking"
 
             # Second sync (same session)
             new_count_2 = sync_session(conn, fixture_path, project_dir)
@@ -128,14 +142,30 @@ class TestSyncSessionUpdatesExisting:
             cursor.execute("SELECT COUNT(*) FROM sessions")
             session_count_2 = cursor.fetchone()[0]
 
+            # Record UUIDs after second sync
+            cursor.execute("SELECT uuid FROM messages WHERE uuid IS NOT NULL ORDER BY uuid")
+            uuids_2 = [row[0] for row in cursor.fetchall()]
+
             # Session count should not increase
             assert session_count_2 == session_count_1, "Session count should not increase"
 
             # Message count should be the same (no duplicates)
             assert msg_count_2 == msg_count_1, "Messages should not be duplicated"
 
-            # Second sync should have zero new messages (all already exist)
+            # Second sync should have zero new messages — this proves the Python-level
+            # existing_uuids check works, because the code loads existing UUIDs into a
+            # set and skips them before reaching the SQL INSERT
             assert new_count_2 == 0, "Second sync should add no new messages"
+
+            # UUID set should be identical (same messages, no extras)
+            assert uuids_1 == uuids_2, "Message UUID set should be unchanged"
+
+            # Branch structure should be preserved (updated, not recreated)
+            cursor.execute("SELECT id, leaf_uuid, is_active FROM branches ORDER BY id")
+            branches_2 = cursor.fetchall()
+            assert len(branches_2) == len(branches_1), "Branch count should be unchanged"
+            assert [b[1] for b in branches_2] == [b[1] for b in branches_1], \
+                "Branch leaf_uuids should be unchanged"
 
 
 class TestValidateSessionIdValid:
