@@ -57,26 +57,15 @@ def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_
     candidates = cursor.fetchall()
     selected = []
 
+    # First pass: filter candidates using the exchange-count algorithm
+    filtered = []
     for session in candidates:
         _session_id, uuid, started_at, ended_at, exchange_count, files_json, commits_json, git_branch, branch_db_id = session
 
-        # Skip 1-exchange sessions (noise)
         if exchange_count <= 1:
             continue
 
-        # Get messages for this branch via branch_messages (excluding task notifications)
-        cursor.execute("""
-            SELECT m.role, m.content, m.timestamp
-            FROM branch_messages bm
-            JOIN messages m ON bm.message_id = m.id
-            WHERE bm.branch_id = ?
-              AND COALESCE(m.is_notification, 0) = 0
-            ORDER BY m.timestamp ASC
-        """, (branch_db_id,))
-
-        messages = [{"role": r, "content": c, "timestamp": t} for r, c, t in cursor.fetchall()]
-
-        session_data = {
+        entry = {
             "uuid": uuid,
             "started_at": started_at,
             "ended_at": ended_at,
@@ -84,20 +73,45 @@ def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_
             "files_modified": json.loads(files_json) if files_json else [],
             "commits": json.loads(commits_json) if commits_json else [],
             "git_branch": git_branch,
-            "messages": messages
+            "branch_db_id": branch_db_id,
         }
 
-        # 2-exchange: load it, keep looking unless at limit
         if exchange_count == 2:
-            selected.append(session_data)
-            if len(selected) >= max_sessions:
+            filtered.append(entry)
+            if len(filtered) >= max_sessions:
                 break
             continue
 
-        # >2 exchanges: load it and stop (sufficient context)
         if exchange_count > 2:
-            selected.append(session_data)
+            filtered.append(entry)
             break
+
+    if not filtered:
+        return selected
+
+    # Batch-load messages for all selected branches in a single query
+    branch_ids = [s["branch_db_id"] for s in filtered]
+    placeholders = ",".join("?" * len(branch_ids))
+    cursor.execute(f"""
+        SELECT bm.branch_id, m.role, m.content, m.timestamp
+        FROM branch_messages bm
+        JOIN messages m ON bm.message_id = m.id
+        WHERE bm.branch_id IN ({placeholders})
+          AND COALESCE(m.is_notification, 0) = 0
+        ORDER BY bm.branch_id, m.timestamp ASC
+    """, branch_ids)
+
+    # Group messages by branch_id
+    branch_messages = {}  # type: dict[int, list[dict]]
+    for branch_id, role, content, timestamp in cursor.fetchall():
+        branch_messages.setdefault(branch_id, []).append(
+            {"role": role, "content": content, "timestamp": timestamp}
+        )
+
+    for entry in filtered:
+        entry["messages"] = branch_messages.get(entry["branch_db_id"], [])
+        del entry["branch_db_id"]
+        selected.append(entry)
 
     return selected
 

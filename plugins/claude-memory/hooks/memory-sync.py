@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -18,9 +19,18 @@ def main():
         hook_input = sys.stdin.read()
 
         # Write to temp file (cross-platform stdin piping to detached process is unreliable)
+        # Use os.fdopen on the fd directly to avoid TOCTOU race; mkstemp already sets 0o600
         fd, tmp_path = tempfile.mkstemp(prefix="claude-memory-sync-", suffix=".json")
-        with open(fd, "w") as f:
-            f.write(hook_input)
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.write(hook_input)
+        except Exception:
+            # fd is closed by os.fdopen even on error; clean up the file
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
         # Background the sync
         kwargs = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}

@@ -326,6 +326,8 @@ def get_db_connection(settings: Optional[dict] = None) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode = WAL")
     # busy_timeout: wait up to 5s on writer-writer collisions instead of failing
     conn.execute("PRAGMA busy_timeout = 5000")
+    # Enforce foreign key constraints to prevent orphaned data
+    conn.execute("PRAGMA foreign_keys = ON")
 
     # Check if migration needed (old schema -> v3)
     migrated = migrate_db(conn)

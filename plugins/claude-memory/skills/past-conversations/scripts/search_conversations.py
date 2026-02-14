@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -16,6 +17,22 @@ from pathlib import Path
 # Local imports
 from memory_lib.db import DEFAULT_DB_PATH, detect_fts_support
 from memory_lib.formatting import format_markdown_session, format_json_sessions
+
+
+def sanitize_fts_term(term: str) -> str:
+    """Remove FTS special characters from search term.
+
+    Strips characters that are FTS operators or special syntax:
+    quotes, parentheses, asterisks, and FTS keywords.
+    Keeps alphanumeric, spaces, and basic punctuation.
+    """
+    # Remove quotes, parentheses, asterisks, and word boundaries
+    sanitized = re.sub(r'["\(\)*]', '', term)
+    # Remove FTS keywords: NEAR, AND, OR, NOT (case-insensitive)
+    sanitized = re.sub(r'\b(NEAR|AND|OR|NOT)\b', '', sanitized, flags=re.IGNORECASE)
+    # Strip whitespace
+    sanitized = sanitized.strip()
+    return sanitized
 
 
 def search_sessions(
@@ -37,7 +54,11 @@ def search_sessions(
     params: list = []
 
     if fts_level in ("fts5", "fts4"):
-        fts_query = " OR ".join(f'"{term}"' for term in terms)
+        sanitized_terms = [sanitize_fts_term(term) for term in terms]
+        sanitized_terms = [t for t in sanitized_terms if t]  # Remove empty terms
+        if not sanitized_terms:
+            return []
+        fts_query = " OR ".join(f'"{term}"' for term in sanitized_terms)
 
         if fts_level == "fts5":
             sql = """

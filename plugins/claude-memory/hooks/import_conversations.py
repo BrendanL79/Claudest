@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -41,6 +42,22 @@ def get_file_hash(filepath: Path) -> str:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def sanitize_fts_term(term: str) -> str:
+    """Remove FTS special characters from search term.
+
+    Strips characters that are FTS operators or special syntax:
+    quotes, parentheses, asterisks, and FTS keywords.
+    Keeps alphanumeric, spaces, and basic punctuation.
+    """
+    # Remove quotes, parentheses, asterisks, and word boundaries
+    sanitized = re.sub(r'["\(\)*]', '', term)
+    # Remove FTS keywords: NEAR, AND, OR, NOT (case-insensitive)
+    sanitized = re.sub(r'\b(NEAR|AND|OR|NOT)\b', '', sanitized, flags=re.IGNORECASE)
+    # Strip whitespace
+    sanitized = sanitized.strip()
+    return sanitized
 
 
 def import_session(
@@ -160,8 +177,9 @@ def import_session(
         (session_id,)
     )
     old_branch_ids = [row[0] for row in cursor.fetchall()]
-    for bid in old_branch_ids:
-        cursor.execute("DELETE FROM branch_messages WHERE branch_id = ?", (bid,))
+    if old_branch_ids:
+        placeholders = ",".join("?" * len(old_branch_ids))
+        cursor.execute(f"DELETE FROM branch_messages WHERE branch_id IN ({placeholders})", old_branch_ids)
     cursor.execute("DELETE FROM branches WHERE session_id = ?", (session_id,))
 
     branches_imported = 0
@@ -404,7 +422,12 @@ def main():
         fts_level = detect_fts_support(conn)
 
         if fts_level in ("fts5", "fts4"):
-            fts_query = " OR ".join(f'"{term}"' for term in terms)
+            sanitized_terms = [sanitize_fts_term(term) for term in terms]
+            sanitized_terms = [t for t in sanitized_terms if t]  # Remove empty terms
+            if not sanitized_terms:
+                print("No valid search terms after sanitization")
+                sys.exit(0)
+            fts_query = " OR ".join(f'"{term}"' for term in sanitized_terms)
 
             if fts_level == "fts5":
                 sql = """

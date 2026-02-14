@@ -14,9 +14,17 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sqlite3
 import sys
 from pathlib import Path
+
+_UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
+
+
+def validate_session_id(session_id: str) -> bool:
+    """Validate that session_id is a proper UUID to prevent path traversal."""
+    return bool(session_id and _UUID_RE.match(session_id))
 
 # Add path to shared utils
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -30,8 +38,17 @@ from memory_lib.parsing import (
 )
 
 
+def _is_under(path: Path, base: Path) -> bool:
+    """Check if resolved path is under base directory (Python 3.7+ compatible)."""
+    try:
+        path.resolve().relative_to(base.resolve())
+        return True
+    except ValueError:
+        return False
+
+
 def get_session_file(projects_dir: Path, session_id: str) -> Path | None:
-    """Find the JSONL file for a session ID."""
+    """Find the JSONL file for a session ID. Validates path stays under projects_dir."""
     for project_dir in projects_dir.iterdir():
         if not project_dir.is_dir():
             continue
@@ -39,7 +56,10 @@ def get_session_file(projects_dir: Path, session_id: str) -> Path | None:
         # Check main session files
         session_file = project_dir / f"{session_id}.jsonl"
         if session_file.exists():
-            return session_file
+            # Verify resolved path is still under projects_dir (symlink escape prevention)
+            if _is_under(session_file, projects_dir):
+                return session_file
+            continue
 
         # Check subagent files
         for subdir in project_dir.iterdir():
@@ -47,7 +67,8 @@ def get_session_file(projects_dir: Path, session_id: str) -> Path | None:
                 subagents_dir = subdir / "subagents"
                 if subagents_dir.exists():
                     for f in subagents_dir.glob(f"*{session_id}*.jsonl"):
-                        return f
+                        if _is_under(f, projects_dir):
+                            return f
 
     return None
 
@@ -258,10 +279,15 @@ def sync_session(conn: sqlite3.Connection, filepath: Path, project_dir: Path) ->
         )
 
     # Step 5: Clean up stale branches
-    for old_leaf, old_branch_id in existing_branches.items():
-        if old_leaf not in current_leaf_uuids:
-            cursor.execute("DELETE FROM branch_messages WHERE branch_id = ?", (old_branch_id,))
-            cursor.execute("DELETE FROM branches WHERE id = ?", (old_branch_id,))
+    stale_branch_ids = [
+        old_branch_id
+        for old_leaf, old_branch_id in existing_branches.items()
+        if old_leaf not in current_leaf_uuids
+    ]
+    if stale_branch_ids:
+        placeholders = ",".join("?" * len(stale_branch_ids))
+        cursor.execute(f"DELETE FROM branch_messages WHERE branch_id IN ({placeholders})", stale_branch_ids)
+        cursor.execute(f"DELETE FROM branches WHERE id IN ({placeholders})", stale_branch_ids)
 
     # Clean up orphaned messages (not referenced by any branch)
     cursor.execute("""
@@ -315,8 +341,8 @@ def main():
 
     session_id = hook_input.get("session_id")
 
-    if not session_id:
-        # No session ID provided, exit silently
+    if not session_id or not validate_session_id(session_id):
+        # No session ID or invalid format — exit silently
         print(json.dumps({"continue": True}))
         return
 

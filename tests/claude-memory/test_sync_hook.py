@@ -1,0 +1,189 @@
+"""Integration tests for sync_current.py hook."""
+
+from __future__ import annotations
+
+import sqlite3
+import sys
+import tempfile
+from pathlib import Path
+
+import pytest
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures"
+
+# Add hooks directory to sys.path to import sync_current
+HOOKS_DIR = Path(__file__).parent.parent.parent / "plugins" / "claude-memory" / "hooks"
+sys.path.insert(0, str(HOOKS_DIR))
+
+from sync_current import sync_session, validate_session_id
+from memory_lib.db import SCHEMA, _migrate_columns
+
+
+@pytest.fixture
+def memory_db_with_project():
+    """In-memory SQLite database with schema and a test project."""
+    conn = sqlite3.connect(":memory:")
+    conn.executescript(SCHEMA)
+    conn.commit()
+    _migrate_columns(conn)
+
+    # Create a test project
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO projects (path, key, name) VALUES (?, ?, ?)",
+        ("/test/project", "-test-project", "project")
+    )
+    cursor.execute("SELECT id FROM projects WHERE path = ?", ("/test/project",))
+    project_id = cursor.fetchone()[0]
+
+    conn.commit()
+    yield conn, project_id
+    conn.close()
+
+
+class TestSyncSessionCreatesBranches:
+    """Test that sync_session creates branches correctly from JSONL fixture."""
+
+    def test_sync_session_creates_branches(self, memory_db_with_project):
+        """sync_session should create branches from a fixture with rewinding."""
+        conn, project_id = memory_db_with_project
+        fixture_path = FIXTURE_DIR / "single_rewind.jsonl"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+
+            # Sync the session
+            new_count = sync_session(conn, fixture_path, project_dir)
+
+            # Verify messages were added
+            assert new_count > 0, "Should have added messages"
+
+            # Verify a session was created
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM sessions")
+            assert cursor.fetchone()[0] == 1
+
+            # Verify branches were created
+            cursor.execute("SELECT COUNT(*) FROM branches")
+            branch_count = cursor.fetchone()[0]
+            assert branch_count > 0, "Should have created at least one branch"
+
+            # Verify branch_messages were created
+            cursor.execute("SELECT COUNT(*) FROM branch_messages")
+            branch_msg_count = cursor.fetchone()[0]
+            assert branch_msg_count > 0, "Should have linked messages to branches"
+
+            # Verify only one active branch
+            cursor.execute("SELECT COUNT(*) FROM branches WHERE is_active = 1")
+            assert cursor.fetchone()[0] == 1, "Should have exactly one active branch"
+
+    def test_sync_session_populates_branch_content(self, memory_db_with_project):
+        """Aggregated content should be populated after sync."""
+        conn, project_id = memory_db_with_project
+        fixture_path = FIXTURE_DIR / "single_rewind.jsonl"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            sync_session(conn, fixture_path, project_dir)
+
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT aggregated_content FROM branches WHERE is_active = 1"
+            )
+            row = cursor.fetchone()
+            assert row is not None
+            content = row[0]
+            assert content, "Active branch should have aggregated content"
+
+
+class TestSyncSessionUpdatesExisting:
+    """Test that syncing the same session twice updates rather than duplicates."""
+
+    def test_sync_session_updates_existing(self, memory_db_with_project):
+        """Syncing the same session twice should update, not duplicate messages."""
+        conn, project_id = memory_db_with_project
+        fixture_path = FIXTURE_DIR / "single_rewind.jsonl"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+
+            # First sync
+            new_count_1 = sync_session(conn, fixture_path, project_dir)
+            conn.commit()
+
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM messages")
+            msg_count_1 = cursor.fetchone()[0]
+
+            cursor.execute("SELECT COUNT(*) FROM sessions")
+            session_count_1 = cursor.fetchone()[0]
+
+            # Second sync (same session)
+            new_count_2 = sync_session(conn, fixture_path, project_dir)
+            conn.commit()
+
+            cursor.execute("SELECT COUNT(*) FROM messages")
+            msg_count_2 = cursor.fetchone()[0]
+
+            cursor.execute("SELECT COUNT(*) FROM sessions")
+            session_count_2 = cursor.fetchone()[0]
+
+            # Session count should not increase
+            assert session_count_2 == session_count_1, "Session count should not increase"
+
+            # Message count should be the same (no duplicates)
+            assert msg_count_2 == msg_count_1, "Messages should not be duplicated"
+
+            # Second sync should have zero new messages (all already exist)
+            assert new_count_2 == 0, "Second sync should add no new messages"
+
+
+class TestValidateSessionIdValid:
+    """Test that validate_session_id accepts valid UUIDs."""
+
+    def test_validate_session_id_lowercase(self):
+        """Should accept lowercase UUID format."""
+        session_id = "016e1f0d-cff2-4552-9e21-43833c9a468e"
+        assert validate_session_id(session_id) is True
+
+    def test_validate_session_id_uppercase(self):
+        """Should accept uppercase UUID format."""
+        session_id = "016E1F0D-CFF2-4552-9E21-43833C9A468E"
+        assert validate_session_id(session_id) is True
+
+    def test_validate_session_id_mixed_case(self):
+        """Should accept mixed case UUID format."""
+        session_id = "016e1F0d-CfF2-4552-9E21-43833c9A468e"
+        assert validate_session_id(session_id) is True
+
+
+class TestValidateSessionIdRejectsTraversal:
+    """Test that validate_session_id rejects path traversal and invalid formats."""
+
+    def test_validate_session_id_rejects_path_traversal(self):
+        """Should reject path traversal attempts."""
+        assert validate_session_id("../etc/passwd") is False
+
+    def test_validate_session_id_rejects_empty_string(self):
+        """Should reject empty string."""
+        assert validate_session_id("") is False
+
+    def test_validate_session_id_rejects_non_uuid(self):
+        """Should reject non-UUID formats."""
+        assert validate_session_id("not-a-uuid") is False
+
+    def test_validate_session_id_rejects_partial_uuid(self):
+        """Should reject partial UUIDs."""
+        assert validate_session_id("016e1f0d-cff2-4552-9e21") is False
+
+    def test_validate_session_id_rejects_sql_injection(self):
+        """Should reject SQL injection patterns."""
+        assert validate_session_id("' OR '1'='1") is False
+
+    def test_validate_session_id_rejects_none(self):
+        """Should reject None (edge case)."""
+        assert validate_session_id(None) is False
+
+    def test_validate_session_id_rejects_uuid_with_extra(self):
+        """Should reject UUID with extra characters."""
+        assert validate_session_id("016e1f0d-cff2-4552-9e21-43833c9a468e-extra") is False
