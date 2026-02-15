@@ -22,6 +22,7 @@ EXPECTED = {
     "single_rewind": {"branches": 3, "active_exchanges": 5},
     "multi_rewind": {"branches": 4, "active_exchanges": 7},
     "with_notifications": {"branches": 1, "active_exchanges": 2},
+    "with_teammate_messages": {"branches": 1, "active_exchanges": 2},
 }
 
 

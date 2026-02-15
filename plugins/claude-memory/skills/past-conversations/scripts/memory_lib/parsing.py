@@ -14,6 +14,7 @@ from memory_lib.content import (
     extract_commits,
     extract_files_modified,
     is_task_notification,
+    is_teammate_message,
     is_tool_result,
 )
 
@@ -202,7 +203,7 @@ def compute_branch_metadata(entries: list[dict]) -> tuple[int, list[str], list[s
         if entry_type == "user" and is_tool_result(content):
             continue
 
-        if entry_type == "user" and is_task_notification(content):
+        if entry_type == "user" and (is_task_notification(content) or is_teammate_message(content)):
             continue
 
         if entry_type == "user":

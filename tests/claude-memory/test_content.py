@@ -5,6 +5,7 @@ from memory_lib.content import (
     extract_files_modified,
     extract_text_content,
     is_task_notification,
+    is_teammate_message,
     is_tool_result,
 )
 
@@ -179,6 +180,44 @@ class TestIsTaskNotification:
     def test_partial_match(self):
         content = "I received a <task-notification> in the middle"
         assert is_task_notification(content) is False
+
+
+# --- is_teammate_message ---
+
+
+class TestIsTeammateMessage:
+    def test_string_teammate_message(self):
+        content = '<teammate-message teammate_id="batch-ops" color="purple" summary="Task complete">\nTask #4 is complete.\n</teammate-message>'
+        assert is_teammate_message(content) is True
+
+    def test_idle_notification(self):
+        content = '<teammate-message teammate_id="test-sync" color="yellow">\n{"type":"idle_notification","from":"test-sync","timestamp":"2026-02-14T17:35:47.648Z","idleReason":"available"}\n</teammate-message>'
+        assert is_teammate_message(content) is True
+
+    def test_list_content(self):
+        content = [{"type": "text", "text": '<teammate-message teammate_id="x">\nDone.\n</teammate-message>'}]
+        assert is_teammate_message(content) is True
+
+    def test_regular_user_message(self):
+        assert is_teammate_message("Hello, how are you?") is False
+
+    def test_task_notification_not_teammate(self):
+        content = "<task-notification>\n<task-id>abc</task-id>\n</task-notification>"
+        assert is_teammate_message(content) is False
+
+    def test_empty_string(self):
+        assert is_teammate_message("") is False
+
+    def test_none(self):
+        assert is_teammate_message(None) is False
+
+    def test_whitespace_prefix(self):
+        content = "  \n  <teammate-message teammate_id=\"x\">\nDone.\n</teammate-message>"
+        assert is_teammate_message(content) is True
+
+    def test_partial_match(self):
+        content = "I received a <teammate-message> in the middle"
+        assert is_teammate_message(content) is False
 
 
 # --- extract_files_modified ---

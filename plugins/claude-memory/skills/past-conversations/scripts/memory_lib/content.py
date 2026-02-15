@@ -62,6 +62,19 @@ def is_task_notification(content) -> bool:
     return text.startswith("<task-notification>")
 
 
+def is_teammate_message(content) -> bool:
+    """Detect teammate coordination messages (team reports, idle notifications, shutdown)."""
+    if isinstance(content, list):
+        texts = [item.get("text", "") for item in content
+                 if isinstance(item, dict) and item.get("type") == "text"]
+        text = "\n".join(texts).strip()
+    elif isinstance(content, str):
+        text = content.strip()
+    else:
+        return False
+    return text.startswith("<teammate-message")
+
+
 def is_tool_result(content) -> bool:
     """Check if content is a tool result (not a real user message)."""
     if isinstance(content, list) and content:

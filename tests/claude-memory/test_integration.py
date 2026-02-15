@@ -1,9 +1,9 @@
-"""Integration tests for task-notification classification end-to-end."""
+"""Integration tests for notification classification (task-notification + teammate-message) end-to-end."""
 
 import sqlite3
 from pathlib import Path
 
-from memory_lib.content import extract_text_content, is_task_notification, is_tool_result
+from memory_lib.content import extract_text_content, is_task_notification, is_teammate_message, is_tool_result
 from memory_lib.db import SCHEMA, _migrate_columns
 from memory_lib.parsing import (
     aggregate_branch_content,
@@ -45,7 +45,7 @@ def _setup_db_and_import(filepath: Path) -> sqlite3.Connection:
         content = message.get("content", "")
         if entry_type == "user" and is_tool_result(content):
             continue
-        notification = 1 if (entry_type == "user" and is_task_notification(content)) else 0
+        notification = 1 if (entry_type == "user" and (is_task_notification(content) or is_teammate_message(content))) else 0
         text, has_tool_use, has_thinking, tool_summary = extract_text_content(content)
         if not text:
             continue
@@ -168,4 +168,62 @@ class TestNotificationEndToEnd:
         notif_count = sum(1 for m in messages if m[2] == 1)
         assert notif_count == 2
         assert len(messages) > notif_count  # Should also have regular messages
+        conn.close()
+
+
+TEAMMATE_FIXTURE = FIXTURE_DIR / "with_teammate_messages.jsonl"
+
+
+class TestTeammateMessageEndToEnd:
+    def test_teammate_messages_flagged(self):
+        """Teammate messages should have is_notification=1."""
+        conn = _setup_db_and_import(TEAMMATE_FIXTURE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM messages WHERE is_notification = 1")
+        assert cursor.fetchone()[0] == 2  # Two teammate messages (report + idle)
+
+        cursor.execute("SELECT COUNT(*) FROM messages WHERE is_notification = 0 AND role = 'user'")
+        assert cursor.fetchone()[0] == 2  # Two real user messages
+        conn.close()
+
+    def test_aggregate_excludes_teammate_messages(self):
+        """Branch aggregated content should not contain teammate message text."""
+        conn = _setup_db_and_import(TEAMMATE_FIXTURE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT aggregated_content FROM branches WHERE is_active = 1")
+        agg = cursor.fetchone()[0]
+        assert "<teammate-message" not in agg
+        assert "idle_notification" not in agg
+        assert "Implement the security fixes" in agg or "commit and push" in agg
+        conn.close()
+
+    def test_exchange_count_excludes_teammate_messages(self):
+        """Exchange count should reflect human exchanges only, not teammate messages."""
+        conn = _setup_db_and_import(TEAMMATE_FIXTURE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT exchange_count FROM branches WHERE is_active = 1")
+        count = cursor.fetchone()[0]
+        assert count == 2  # "Implement the security fixes" and "awesome, looks great. now commit"
+        conn.close()
+
+    def test_context_injection_query_excludes_teammate_messages(self):
+        """The query pattern used by memory-context.py should exclude teammate messages."""
+        conn = _setup_db_and_import(TEAMMATE_FIXTURE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM branches WHERE is_active = 1")
+        branch_db_id = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT m.role, m.content, m.timestamp
+            FROM branch_messages bm
+            JOIN messages m ON bm.message_id = m.id
+            WHERE bm.branch_id = ?
+              AND COALESCE(m.is_notification, 0) = 0
+            ORDER BY m.timestamp ASC
+        """, (branch_db_id,))
+        messages = cursor.fetchall()
+
+        for _, content, _ in messages:
+            assert "<teammate-message" not in content
+            assert "idle_notification" not in content
         conn.close()

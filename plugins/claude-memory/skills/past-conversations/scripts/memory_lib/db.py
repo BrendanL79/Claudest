@@ -282,6 +282,11 @@ def _migrate_columns(conn: sqlite3.Connection) -> None:
             UPDATE messages SET is_notification = 1
             WHERE role = 'user' AND content LIKE '<task-notification>%'
         """)
+        # Backfill teammate messages as notifications
+        cursor.execute("""
+            UPDATE messages SET is_notification = 1
+            WHERE role = 'user' AND content LIKE '<teammate-message%' AND is_notification = 0
+        """)
         # Re-aggregate branches that contained notifications (fix FTS + exchange_count)
         cursor.execute("""
             SELECT DISTINCT bm.branch_id

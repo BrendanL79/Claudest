@@ -27,7 +27,7 @@ from memory_lib.db import (
     DEFAULT_DB_PATH, DEFAULT_PROJECTS_DIR, get_db_path,
     get_db_connection, load_settings, setup_logging, detect_fts_support,
 )
-from memory_lib.content import extract_text_content, is_task_notification, is_tool_result
+from memory_lib.content import extract_text_content, is_task_notification, is_teammate_message, is_tool_result
 from memory_lib.parsing import (
     parse_jsonl_file, parse_all_with_uuids, extract_session_metadata,
     find_all_branches, compute_branch_metadata, aggregate_branch_content,
@@ -133,7 +133,7 @@ def import_session(
         if entry_type == "user" and is_tool_result(content):
             continue
 
-        notification = 1 if (entry_type == "user" and is_task_notification(content)) else 0
+        notification = 1 if (entry_type == "user" and (is_task_notification(content) or is_teammate_message(content))) else 0
 
         text, has_tool_use, has_thinking, tool_summary = extract_text_content(content)
         if not text:
@@ -320,6 +320,10 @@ def import_project(
         subagents_dir = project_dir / session_uuid / "subagents"
         if subagents_dir.exists():
             for subagent_file in subagents_dir.glob("*.jsonl"):
+                # Skip prompt_suggestion agents (autocomplete noise)
+                if "prompt_suggestion" in subagent_file.stem:
+                    sessions_skipped += 1
+                    continue
                 # For subagents, find parent session id
                 cursor.execute(
                     "SELECT id FROM sessions WHERE uuid = ? LIMIT 1",
