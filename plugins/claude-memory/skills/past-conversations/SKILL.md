@@ -1,105 +1,39 @@
 ---
 name: past-conversations
-description: Fetch past conversations from memory database. Triggers on "what did we discuss", "continue where we left off", "remember when", "as I mentioned", "you suggested", "we decided". Also triggers on implicit signals like past-tense references ("the bug we fixed"), possessives without context ("my project"), or assumptive questions ("do you remember").
+description: >
+  This skill should be used when the user asks to recall, search, or continue
+  past conversations. Triggers on "what did we discuss", "continue where we
+  left off", "remember when", "as I mentioned", "you suggested", "we decided",
+  "search my conversations", "find the conversation where", "what did we work on".
+  Also triggers on implicit signals like past-tense references ("the bug we fixed"),
+  possessives without context ("my project"), or assumptive questions ("do you remember").
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash(python3:*)
+  - AskUserQuestion
 ---
-
-# past-conversations
 
 ## Tools
 
-### recent_chats
+Two scripts retrieve data. For full option catalogs, load `references/tool-reference.md`.
 
-Retrieve recent conversation sessions with all messages.
-
+**recent_chats.py** — retrieve recent sessions:
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/past-conversations/scripts/recent_chats.py --n 3
 ```
 
-| Option | Effect |
-|--------|--------|
-| `--n N` | Number of sessions (1-20, default 3) |
-| `--sort-order` | 'desc' (newest first, default) or 'asc' |
-| `--before DATE` | Sessions before this datetime (ISO) |
-| `--after DATE` | Sessions after this datetime (ISO) |
-| `--project NAME` | Filter by project name(s), comma-separated |
-| `--verbose` | Include files_modified and commits |
-| `--format` | 'markdown' (default) or 'json' |
-| `--include-notifications` | Include task notification messages (hidden by default) |
-
-**Usage guidance:**
-- Use `--n 20` to maximize information gathering
-- For comprehensive review, use `--n 20`
-- For quick context, use `--n 3-5`
-- Use `--verbose` for lenses that need file/commit context
-
-### search_conversations
-
-Search for sessions containing keywords using full-text search (FTS5/FTS4/LIKE cascade).
-
+**search_conversations.py** — keyword search across all sessions:
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/past-conversations/scripts/search_conversations.py --query "keyword"
 ```
-
-| Option | Effect |
-|--------|--------|
-| `--query` | Required - substantive keywords |
-| `--max-results N` | Limit results (1-10, default 5) |
-| `--project NAME` | Filter by project name(s), comma-separated |
-| `--verbose` | Include files_modified and commits |
-| `--format` | 'markdown' (default) or 'json' |
-| `--include-notifications` | Include task notification messages (hidden by default) |
-
-**Output**: Default markdown format (token-efficient):
-```
-## myproject | 2026-02-01 10:00
-Session: abc123
-
-### Conversation
-
-**User:** ...
-**Assistant:** ...
-```
-
-Use `--format json` when structured data is needed.
 
 ---
 
 ## Workflow
 
-1. **Identify the lens** from user intent (see Routing table below)
-
-2. **Gather context** using lens-appropriate tools:
-   - For recent context: `recent_chats.py --n N`
-   - For keyword search: `search_conversations.py --query "keywords"`
-   Use the Parameters table to select tool and options.
-
-3. **Apply lens questions** to analyze the retrieved conversations
-
-4. **Deepen the search** if initial results are insufficient:
-   - Retrieve more sessions: `--n 20`
-   - Search for specific terms that surfaced
-   - Filter by project: `--project projectname`
-
----
-
-## Query Construction
-
-When building search queries from user requests, extract substantive keywords. Search uses branch-level full-text search — each branch's full conversation text is indexed as one document, so multi-word queries work naturally across message boundaries. BM25 ranking is used when FTS5 is available; falls back to FTS4 or LIKE on older systems.
-
-**Include:** Specific nouns, technologies, concepts, project names, domain terms, unique phrases. More terms improve ranking precision — BM25 weights rare terms higher automatically.
-
-**Exclude:** Generic verbs ("discuss", "talk"), time markers ("yesterday"), vague nouns ("thing", "stuff"), meta-conversation words ("conversation", "chat").
-
-**Algorithm:**
-1. Extract substantive keywords from user request
-2. If 0 keywords → ask for clarification ("Which project specifically?")
-3. If 1+ specific terms → search with those terms; use `--project` to narrow scope
-
----
-
-## Lenses
-
-### Routing
+1. **Identify the lens** from user intent:
 
 | User Says | Lens |
 |-----------|------|
@@ -111,44 +45,34 @@ When building search queries from user requests, extract substantive keywords. S
 | "decisions", "CLAUDE.md" | extract-decisions |
 | "bad habits", "antipatterns" | find-antipatterns |
 
-### Parameters
+   Load `references/lenses.md` for per-lens parameters, core questions, and supplementary search patterns.
 
-| Lens | Tool | Options | Also Gather |
-|------|------|---------|-------------|
-| restore-context | recent_chats | `--n 5 --verbose` | `git status`, `git log -10` |
-| extract-learnings | recent_chats | `--n 20` | — |
-| find-gaps | search_conversations | `--query "confused struggling"` | — |
-| review-process | recent_chats | `--n 20 --verbose` | recent git log |
-| run-retro | recent_chats | `--n 20 --project NAME --verbose` | full git history |
-| extract-decisions | search_conversations | `--query "decided chose trade-off"` | — |
-| find-antipatterns | search_conversations | `--query "again same mistake repeated"` | — |
+2. **Gather context** using lens-appropriate tools:
+   - For recent context: `recent_chats.py --n N`
+   - For keyword search: `search_conversations.py --query "keywords"`
 
-Use `--verbose` for lenses that benefit from seeing files modified and commits (restore-context, review-process, run-retro).
+3. **Apply lens questions** to analyze the retrieved conversations.
 
-### Core Questions
+4. **Deepen the search** if initial results are insufficient:
+   - Retrieve more sessions: `--n 20`
+   - Search for specific terms that surfaced
+   - Filter by project: `--project projectname`
+   - If 2 rounds of deepening yield no new relevant sessions, synthesize from available data.
 
-| Lens | Ask |
-|------|-----|
-| restore-context | What's unfinished? What were the next steps? |
-| extract-learnings | Where did understanding shift? What mistakes became lessons? |
-| find-gaps | What topics recur? Where is guidance needed repeatedly? |
-| review-process | Is there planning before coding? Is debugging systematic? |
-| run-retro | How did the solution evolve? What worked? What was painful? |
-| extract-decisions | What trade-offs were discussed? What was rejected and why? |
-| find-antipatterns | What mistakes repeat? What confusions persist? |
+---
 
-**Follow-ups**: find-gaps → suggest `learn-anything`. extract-decisions → suggest `/updateclaudemd`.
+## Query Construction
 
-### Supplementary Search Patterns
+Search terms should be content-bearing words that discriminate between sessions — high information value words that are rare enough to rank relevant sessions above irrelevant ones. BM25 ranking (when FTS5 is available) weights rare terms higher automatically.
 
-When recent retrieval doesn't surface enough, use targeted searches:
+**Include:** specific nouns, technologies, concepts, project names, domain terms, unique phrases. More terms improve ranking precision.
 
-| Lens | Query |
-|------|-------|
-| extract-learnings | `--query "learned realized understand clicked"` |
-| find-gaps | `--query "confused struggling help don't understand"` |
-| extract-decisions | `--query "decided chose instead trade-off because"` |
-| find-antipatterns | `--query "again same mistake repeated forgot"` |
+**Exclude:** generic verbs ("discuss", "talk"), time markers ("yesterday"), vague nouns ("thing", "stuff"), meta-conversation words ("conversation", "chat") — these appear in nearly every session and add noise rather than signal.
+
+**Algorithm:**
+1. Extract substantive keywords from user request
+2. If 0 keywords, ask for clarification ("Which project specifically?")
+3. If 1+ specific terms, search with those terms; use `--project` to narrow scope
 
 ---
 
