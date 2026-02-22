@@ -1,9 +1,10 @@
 ---
 name: extract-learnings
 description: >
-  Persist learnings to the correct memory layer. Triggers on "extract learnings",
-  "save this for next time", "remember this pattern", "add this to memory",
-  "update CLAUDE.md with what we learned", "store this insight".
+  This skill should be used when the user asks to persist learnings to memory.
+  Triggers on "extract learnings", "save this for next time", "remember this
+  pattern", "add this to memory", "update CLAUDE.md with what we learned",
+  "store this insight".
 allowed-tools:
   - Read
   - Write
@@ -67,7 +68,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/past-conversations/scripts/search_conversat
 
 Returns matching sessions ranked by relevance (BM25 when FTS5 available). Use `--format json` for structured result parsing.
 
-For full option catalogs, load `${CLAUDE_PLUGIN_ROOT}/skills/past-conversations/references/tool-reference.md`.
+For full option catalogs, load `${CLAUDE_PLUGIN_ROOT}/skills/past-conversations/references/tool-reference.md`. Both scripts default to markdown (token-efficient for synthesis). Use `--format json` when filtering or counting sessions programmatically.
 
 ## Workflow
 
@@ -89,7 +90,9 @@ Exit Stage 1 when at least one source of candidate learnings is in context (curr
 
 ### Stage 2: Analysis & Distillation
 
-Identify candidate learnings from gathered context. For each candidate, determine: the learning itself (condensed to 1-2 sentences), the target layer (via the decision tree above), and the target section within that file. Use `--format json` when filtering or counting sessions programmatically; use default markdown when synthesizing content for the user.
+Identify candidate learnings from gathered context. For each candidate, determine: the learning itself (condensed to 1-2 sentences), the target layer (via the decision tree above), and the target section within that file.
+
+Limit to 3-7 candidates per invocation. If more surface, rank by impact and present the top set.
 
 ### Stage 3: Placement Proposal
 
@@ -140,9 +143,13 @@ Output a summary table:
 
 ## Content Quality Rules
 
-Every candidate must pass these filters before being proposed.
+Every candidate must pass these filters before being proposed:
+- Would the agent benefit from knowing this in future sessions?
+- Is it condensed to the minimum needed to be useful?
+- Is it placed at the right layer (not too broad, not too narrow)?
+- Does the target file not already contain this knowledge?
 
-### DO persist
+### Examples of passing
 
 - Commands or workflows discovered through trial and error
 - Non-obvious gotchas that caused debugging time
@@ -152,7 +159,7 @@ Every candidate must pass these filters before being proposed.
 - Package/module relationships not obvious from imports
 - Version history milestones
 
-### DO NOT persist
+### Examples of failing
 
 - Information obviously readable from the code itself
 - Generic programming best practices ("write tests", "use meaningful names")
@@ -161,11 +168,3 @@ Every candidate must pass these filters before being proposed.
 - Content already captured in the target file (semantic dedup)
 - Temporary state or session-specific context
 - Speculative conclusions not verified against the codebase
-
-### Must-pass checklist
-
-Before proposing any learning:
-- Would the agent benefit from knowing this in future sessions?
-- Is it condensed to the minimum needed to be useful?
-- Is it placed at the right layer (not too broad, not too narrow)?
-- Does the target file not already contain this knowledge?
