@@ -3,9 +3,9 @@ name: skill-repair
 description: >
   This skill should be used when the user asks to "repair a skill", "audit a skill",
   "fix my skill", "improve an existing skill", "review skill quality", "check if my skill
-  is well-written", "diagnose skill problems", "what's wrong with this skill", or points
-  to a skill file and asks what can be improved. Complementary to skill-creator — use
-  this on existing skills, skill-creator for generating new ones.
+  is well-written", "diagnose skill problems", "what's wrong with this skill", "improve
+  this skill", "what's wrong with this SKILL.md", or asks what can be improved about an
+  existing skill.
 argument-hint: "<path-to-skill-directory-or-SKILL.md>"
 ---
 
@@ -35,11 +35,14 @@ If the path is missing or ambiguous, use AskUserQuestion to resolve before proce
    frontmatter field catalog, valid values, tool list, tool selection framework.
    Required for Dimensions 1 and 2.
 
+Proceed to Phase 2 when: SKILL.md is read, sibling directories are cataloged, and both
+reference files are loaded.
+
 ## Phase 2: Audit
 
 Run each dimension independently. For each finding record: the dimension code, what is
 wrong or missing, which principle it violates or which gold standard it falls short of,
-and the specific change required.
+and the specific change required. Proceed to Phase 3 when all 7 dimensions are evaluated.
 
 **Finding types:**
 - **Violation** — something present that contradicts a rule
@@ -79,7 +82,8 @@ costs budget across every session. Audit for violations *and* gaps:
   `argument-hint` field? The hint is shown in autocomplete — its absence means users don't
   know what to pass. *Minor.*
 - **Name validity:** Is the skill name lowercase, hyphens only, max 64 chars? Verb-led for
-  commands? Namespaced when it aids routing clarity? *Minor if wrong.*
+  commands? Namespaced when it aids routing clarity? These constraints ensure filesystem
+  compatibility, command-line ergonomics, and unambiguous routing. *Minor if wrong.*
 
 ---
 
@@ -210,8 +214,10 @@ A skill's process should be sequential, complete, and have explicit exit conditi
 each phase. Audit for broken workflow *and* for missing structure that would help.
 
 **Violations:**
-- Is the process structured as numbered phases with clear names?
-- Does each phase have an explicit entry condition and exit condition?
+- Is the process structured as numbered phases with clear names? Without explicit phases
+  the model can't track progress or know which step it's in. *Major if unstructured.*
+- Does each phase have an explicit exit condition? Without one, the model doesn't know
+  when to stop iterating on a phase and may loop or skip prematurely. *Major if missing.*
 - Are there half-thought steps — phases that describe intent without specifying what to
   do or how to evaluate the result? *Major per uncovered phase.*
 - Does the skill handle missing, ambiguous, or malformed input?
@@ -328,91 +334,13 @@ After applying improvements, briefly explain:
 - **What remains for the user to address** — "The examples/ gap requires domain knowledge
   to fill; a placeholder directory was created"
 
----
-
-## Quality Standards
-
-A fully improved skill satisfies all of the following:
-
-**Anatomy:**
-- Directory structure matches complexity tier (see `skill-anatomy.md`)
-- Every resource file in `scripts/`, `references/`, `examples/` is referenced in SKILL.md
-- No extraneous documentation files in the skill directory
-
-**Format Economy:**
-- Simple instruction → single imperative, no surrounding prose
-- Repeated operation → script in `scripts/`, not inlined code block
-- Invocation-selective detail → deferred to `references/`
-
-**Intensional Instruction:**
-- Every rule states the *why* alongside the *what*
-- Examples confirm stated principles; they do not carry the instructional weight alone
-- Degrees of freedom match task fragility (see `skill-anatomy.md`)
-
-**Balance Flexibility with Precision:**
-- Agentic steps are loose enough for judgment with explicit outcome criteria
-- Deterministic steps are scripted, not reproduced by the model each time
-
-**Remove ruthlessly:** Filler phrases, headers that restate their content, hedging
-language, routing guidance in the body, extraneous documentation files.
+Phase 4 is complete when all confirmed items are applied, the explanation is delivered,
+and the validation checklist passes.
 
 ---
 
-## Validation Checklist
+## Validation
 
-Run after all improvements are applied:
-
-**Structure:**
-- [ ] SKILL.md exists with valid YAML frontmatter
-- [ ] Frontmatter has `name` and `description` fields
-- [ ] Markdown body is present and substantial
-- [ ] Directory structure matches skill complexity tier
-- [ ] Every resource file is referenced from SKILL.md
-
-**Frontmatter Quality:**
-- [ ] Description uses third-person ("This skill should be used when...")
-- [ ] 3–5+ varied trigger phrases; includes naive user phrasing
-- [ ] Uses `>` scalar, not `|`
-- [ ] `argument-hint` present if skill reads `$ARGUMENTS`/`$1`
-
-**Content Quality:**
-- [ ] Body uses imperative voice; no first-person, no second-person
-- [ ] No "When to Use This Skill" section in the body
-- [ ] No headers deeper than H3
-- [ ] No extraneous files (`README.md`, `CHANGELOG.md`, etc.)
-- [ ] Instructions are intensional (rule + reasoning), not purely extensional
-- [ ] Agentic steps have explicit outcome criteria
-- [ ] Deterministic operations are scripted, not inlined
-
-**Progressive Disclosure:**
-- [ ] SKILL.md under 500 lines; invocation-selective detail in `references/`
-- [ ] `scripts/` contains deterministic operations for low-freedom steps
-- [ ] `examples/` exists if skill produces user-adaptable output
-- [ ] `references/` defers topic-specific detail not needed every invocation
-
-**Tool Selection:**
-- [ ] `AskUserQuestion` present if skill needs user decisions mid-workflow
-- [ ] `Skill` present if skill invokes other skills
-- [ ] `Bash` scoped or absent; unrestricted `Bash` is flagged
-- [ ] No dead tool entries (tools listed but never used)
-
-**Script Opportunities:**
-- [ ] No code blocks that would be re-generated identically across invocations
-- [ ] Scripts in `scripts/` are referenced with trigger condition and invocation
-- [ ] No vague script references ("run if needed" without specifying when/how)
-- [ ] Deterministic steps with consistency requirements are scripted, not LLM-generated
-
----
-
-## Reference Files
-
-- **`${CLAUDE_PLUGIN_ROOT}/skills/skill-repair/references/skill-anatomy.md`** — Gold standard anatomy, three-level loading model,
-  directory type definitions, degrees of freedom, naming conventions, body conventions,
-  gap analysis checklist. Load before Phase 2 (all dimensions).
-- **`${CLAUDE_PLUGIN_ROOT}/skills/skill-repair/references/frontmatter-options.md`** — Complete frontmatter field catalog, valid
-  values per field, full tool list with blast-radius notes, tool selection framework,
-  dynamic content syntax. Load before Phase 2 (Dimensions 1 and 2).
-- **`${CLAUDE_PLUGIN_ROOT}/skills/skill-repair/references/script-patterns.md`** — Five signal patterns for recognizing script/CLI
-  candidates, CLI design conventions (args, output format, exit codes), common archetypes
-  (init/validate/transform/package/query), wiring patterns, delegation to `create-cli`.
-  Load before Dimension 4.
+After applying all improvements, load `${CLAUDE_PLUGIN_ROOT}/skills/skill-repair/references/quality-checklist.md`
+and run the quality standards check followed by the item-by-item validation checklist.
+Report any failing items before delivering final results.
