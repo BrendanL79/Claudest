@@ -1,10 +1,10 @@
 # claude-coding
 
-Git workflow skills for Claude Code. Three skills covering the full coding commit loop: stage and commit with conventional format, push and open a PR with smart branch handling, and safely prune merged or stale branches.
+Coding workflow skills for Claude Code. Four skills covering the commit loop and project maintenance: stage and commit with conventional format, push and open a PR with smart branch handling, safely prune merged or stale branches, and keep your CLAUDE.md accurate and concise.
 
 ## Why
 
-Git operations during a coding session have a lot of small decisions that slow you down: which files belong in the same commit, whether to split concerns into separate commits, whether you're on the right branch before pushing, what base branch to target. These skills encode the right defaults so Claude handles those decisions consistently — and asks when it genuinely can't.
+Coding sessions involve repetitive workflow decisions: which files belong in the same commit, whether to split concerns, whether you're on the right branch, what base branch to target, whether your project docs still reflect reality. These skills encode the right defaults so Claude handles those decisions consistently — and asks when it genuinely can't.
 
 ## Installation
 
@@ -34,3 +34,9 @@ Triggers on: "push this", "push my changes", "create a PR", "open a pull request
 Safely remove merged and stale git branches with confirmation. Finds branches already merged into main and branches with no commits in 30+ days, shows them categorized, and asks before deleting anything. Never touches protected branches. Remote deletion requires explicit confirmation.
 
 Triggers on: "clean up branches", "delete merged branches", "prune stale branches", "git branch cleanup", "remove old branches".
+
+### updateclaudemd
+
+Audit and optimize your project's CLAUDE.md file. Reads the current file, explores the codebase to verify accuracy, cuts anything that doesn't change how Claude acts in the next session, and rewrites for scannability. Creates a `.bak` backup before writing. Targets 150-250 lines of actionable content.
+
+Triggers on: "update CLAUDE.md", "refresh the docs", "sync claude config", "optimize project instructions", "clean up CLAUDE.md", "improve CLAUDE.md", "fix CLAUDE.md".
