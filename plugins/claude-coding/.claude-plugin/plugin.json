@@ -1,9 +1,9 @@
 {
   "name": "claude-coding",
-  "version": "0.1.4",
-  "description": "Coding workflow skills: intelligent commits, push & PR, branch cleanup, and CLAUDE.md maintenance",
+  "version": "0.1.5",
+  "description": "Coding workflow skills: intelligent commits, push & PR, branch cleanup, CLAUDE.md maintenance, and README generation",
   "author": {
     "name": "Samarth Gupta"
   },
-  "keywords": ["git", "commit", "pull-request", "branch", "workflow", "coding", "claude-md"]
+  "keywords": ["git", "commit", "pull-request", "branch", "workflow", "coding", "claude-md", "readme"]
 }
