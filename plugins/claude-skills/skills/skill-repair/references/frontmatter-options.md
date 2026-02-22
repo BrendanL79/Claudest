@@ -158,9 +158,9 @@ These substitutions are processed before the skill body reaches Claude.
 | `$1`, `$2`, `$3` | Individual positional arguments |
 | `@path/to/file` | Contents of the file at that path, loaded inline |
 | `@$1` | Contents of the file whose path was passed as the first argument |
-| `` !`command` `` | Output of executing `command` in a shell, injected inline |
+| bang + backtick-wrapped command (e.g. `!date`) | Output of executing the command in a shell, injected inline |
 
 Audit rule: skills that accept a file path as input should use `@$1` to load it inline
 rather than requiring a separate Read tool call — the injection happens before the model
-sees the skill, saving a tool round-trip. The `` !`command` `` pattern is underused:
+sees the skill, saving a tool round-trip. The bang-backtick pattern is underused:
 real-time data like git branch, file tree, or env vars can be injected without tool calls.

@@ -164,7 +164,7 @@ Brief overview (1-2 sentences).
 - Every word must earn its place
 - No "When to Use This Skill" section in the body — the body loads only after triggering, so routing guidance placed there is never read by the routing decision
 - Avoid headers deeper than H3 — deep nesting signals content that belongs in `references/`, not `SKILL.md`
-- Use `` !`command` `` for dynamic context injection when real-time data (git status, file list, env vars) improves the skill without requiring a tool call
+- Use bang-backtick syntax for dynamic context injection when real-time data (git status, file list, env vars) improves the skill without requiring a tool call
 
 ### Dynamic Content
 
@@ -298,7 +298,7 @@ For each workflow step, ask: "Do we already have this?"
 
 ### Script Opportunity Scan
 
-**Load `references/script-patterns.md` before this step.** Apply the five signal
+**Load `${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/references/script-patterns.md` before this step.** Apply the five signal
 patterns to every workflow step in the skill being generated:
 
 | Signal | Question | If yes → |
@@ -335,21 +335,21 @@ This skill includes helper scripts to accelerate skill creation.
 
 **Initialize a new skill:**
 ```bash
-~/.claude/skills/skill-creator/scripts/init_skill.py <name> --path <dir> [--resources scripts,references,assets] [--examples]
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/scripts/init_skill.py <name> --path <dir> [--resources scripts,references,assets] [--examples]
 ```
 
 Creates a skill directory with templated SKILL.md and optional resource directories.
 
 **Validate a skill:**
 ```bash
-~/.claude/skills/skill-creator/scripts/validate_skill.py <skill-directory>
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/scripts/validate_skill.py <skill-directory>
 ```
 
 Checks frontmatter format, naming conventions, description completeness, and body content.
 
 **Package for distribution:**
 ```bash
-~/.claude/skills/skill-creator/scripts/package_skill.py <skill-directory> [output-dir]
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/scripts/package_skill.py <skill-directory> [output-dir]
 ```
 
 Creates a `.skill` file (zip format) after validation passes.

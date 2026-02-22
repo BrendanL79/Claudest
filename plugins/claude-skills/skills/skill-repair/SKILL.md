@@ -28,10 +28,10 @@ If the path is missing or ambiguous, use AskUserQuestion to resolve before proce
 
 **Load both reference files before Phase 2:**
 
-1. `~/.claude/skills/skill-repair/references/skill-anatomy.md` — gold standard for
+1. `${CLAUDE_PLUGIN_ROOT}/skills/skill-repair/references/skill-anatomy.md` — gold standard for
    correct anatomy, three-level loading model, directory type definitions, degrees of
    freedom, naming conventions, body conventions. Required for Dimensions 5, 6, and 7.
-2. `~/.claude/skills/skill-repair/references/frontmatter-options.md` — complete
+2. `${CLAUDE_PLUGIN_ROOT}/skills/skill-repair/references/frontmatter-options.md` — complete
    frontmatter field catalog, valid values, tool list, tool selection framework.
    Required for Dimensions 1 and 2.
 
@@ -104,8 +104,8 @@ and tool selection framework.
 - Does the skill require user decisions mid-workflow but lacks `AskUserQuestion` in `allowed-tools`?
 - Does the skill read a file path from `$1` but uses a `Read` tool call instead of `@$1`
   inline injection? A tool round-trip is being wasted. *Minor.*
-- Could real-time data (git status, env vars, file tree) be injected with `` !`command` ``
-  instead of a tool call? *Minor per instance.*
+- Could real-time data (git status, env vars, file tree) be injected using dynamic content
+  syntax (bang + backtick-wrapped command) instead of a tool call? *Minor per instance.*
 
 ---
 
@@ -132,7 +132,7 @@ of one, covering only the shape of that example.
 
 ### Dimension 4 — Agentic vs Deterministic Split
 
-**Load `references/script-patterns.md` before auditing this dimension.** It contains
+**Load `${CLAUDE_PLUGIN_ROOT}/skills/skill-repair/references/script-patterns.md` before auditing this dimension.** It contains
 the five signal patterns for recognizing a script candidate, CLI design conventions,
 common archetypes (init, validate, transform, package, query), and the delegation
 pattern for using `create-cli` to design the interface.
@@ -406,13 +406,13 @@ Run after all improvements are applied:
 
 ## Reference Files
 
-- **`references/skill-anatomy.md`** — Gold standard anatomy, three-level loading model,
+- **`${CLAUDE_PLUGIN_ROOT}/skills/skill-repair/references/skill-anatomy.md`** — Gold standard anatomy, three-level loading model,
   directory type definitions, degrees of freedom, naming conventions, body conventions,
   gap analysis checklist. Load before Phase 2 (all dimensions).
-- **`references/frontmatter-options.md`** — Complete frontmatter field catalog, valid
+- **`${CLAUDE_PLUGIN_ROOT}/skills/skill-repair/references/frontmatter-options.md`** — Complete frontmatter field catalog, valid
   values per field, full tool list with blast-radius notes, tool selection framework,
   dynamic content syntax. Load before Phase 2 (Dimensions 1 and 2).
-- **`references/script-patterns.md`** — Five signal patterns for recognizing script/CLI
+- **`${CLAUDE_PLUGIN_ROOT}/skills/skill-repair/references/script-patterns.md`** — Five signal patterns for recognizing script/CLI
   candidates, CLI design conventions (args, output format, exit codes), common archetypes
   (init/validate/transform/package/query), wiring patterns, delegation to `create-cli`.
   Load before Dimension 4.
