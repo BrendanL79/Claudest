@@ -3,8 +3,7 @@ name: skill-creator
 description: >
   This skill should be used when the user asks to "create a skill", "make a command",
   "generate a prompt", "write a slash command", "build a Claude extension",
-  "add a skill to a plugin", "improve skill description", "write skill frontmatter",
-  or needs help crafting optimized skills and commands with proper frontmatter, trigger phrases, or progressive disclosure structure.
+  "add a skill to a plugin", "improve skill description", or "write skill frontmatter".
 argument-hint: "[skill|command] [name] - or leave empty to interview"
 ---
 
@@ -21,122 +20,46 @@ Use Task tool with subagent_type=claude-code-guide:
 "List all current frontmatter options for skills and commands, including any execution modifiers, model selection, and structural options."
 ```
 
-Integrate findings into your generation process. Documentation evolves—don't assume you know all options.
-
-## Context Engineering
-
-Every token counts. LLM context is finite. Goal: smallest possible set of high-signal tokens that maximize outcomes
-
-| Do | Don't |
-|---|---|
-| "Validate input before processing" | "You should always make sure to validate..." |
-| "Use grep to search" | "You might want to consider using..." |
-| Bulleted constraints | Paragraphs with buried requirements |
-| Imperative voice ("Analyze") | First person ("I will analyze") |
-
-**Progressive discovery:** Core instructions in main file, details in `references/` subdirectory. Just-in-time information > front-loaded context
-**Trust Claude:** Provide direction, not dictation. Claude extrapolates well from precise nudges.
-**Optimize Signal-to-Noise:** Clear, direct language over verbose explanations. High-value tokens that drive behavior
-
-### Degrees of Freedom
-
-Match specificity to the task's fragility and variability:
-
-| Level | When to Use | Format |
-|-------|-------------|--------|
-| **High freedom** | Multiple valid approaches, context-dependent decisions | Text instructions, heuristics |
-| **Medium freedom** | Preferred pattern exists, some variation acceptable | Pseudocode, scripts with parameters |
-| **Low freedom** | Fragile operations, consistency critical, specific sequence required | Exact scripts, few parameters |
-
-Think of it as path guidance: a narrow bridge with cliffs needs specific guardrails (low freedom), while an open field allows many routes (high freedom).
+Capture any frontmatter fields or options not already listed in `references/frontmatter-options.md`. If nothing new, proceed with current references. If the subagent fails, proceed — current references are sufficient.
 
 ## Phase 1: Understand Requirements
 
-Parse `$ARGUMENTS` for type hint.
-User is often unclear and uninformed on best practices of skill development. Always pull latest claude docs before proceeding. Continue to interview and help user the using `/thinking-partner` skill, if available.
+Parse `$ARGUMENTS` for type hint. User is often unclear and uninformed on best practices of skill development. Continue to interview and help user using `/thinking-partner` skill, if available.
 
 Gather requirements:
-1. **Primary objective** - What should this do?
-2. **Trigger scenarios** - When should it activate?
-3. **Inputs/outputs** - What does it receive and produce?
-4. **Complexity** - Simple, standard, or complex?
-5. **Execution needs** - Isolated context? Delegated to specialized agent?
+1. **Primary objective** — What should this do?
+2. **Trigger scenarios** — When should it activate?
+3. **Inputs/outputs** — What does it receive and produce?
+4. **Complexity** — Simple, standard, or complex?
+5. **Execution needs** — Isolated context? Delegated to specialized agent?
+
+Proceed to Phase 2 when at minimum Objective and Trigger Scenarios are established. Remaining dimensions can be resolved during generation.
 
 ## Phase 2: Generate
 
-Skills and commands share the same structure. The key difference is in the **description**:
-- **Skills:** Trigger-rich, third-person ("This skill should be used when...")
-- **Commands:** Concise, verb-first, under 60 chars
+Apply these principles throughout generation: use imperative voice and terse phrasing because every token in a generated skill body costs budget on every invocation, and Claude extrapolates well from precise nudges. Prefer instruction over example — state the rule with its reasoning so it generalizes to every input.
 
-**Intensional over extensional — apply this to all generated content.** When writing instructions inside a skill body, state the rule directly with its reasoning rather than listing examples that imply the rule. An intensional rule ("quoted phrases must be verbatim user speech *because* routing matches on literal tokens") generalizes to every input the skill will encounter. An extensional approach ("here is a good example, here is a bad example") requires the reader to reverse-engineer the rule — two reasoning hops instead of one, and it only covers the shape of those specific examples. Since this skill generates instructions that will themselves guide further generation, the quality of reasoning propagates: intensional instructions produce intensional skills.
+### Step 1 — Choose type
 
-### Common Frontmatter Options
+- **Skills:** Trigger-rich, third-person description ("This skill should be used when..."); auto-triggered by routing
+- **Commands:** Concise, verb-first description, under 60 chars; user-invoked via `/` menu
 
-```yaml
----
-name: identifier                    # Required for skills
-description: >                      # How it's described/triggered
-  [See description patterns below]
+### Step 2 — Write frontmatter
 
-# Execution modifiers
-model: sonnet                       # haiku (fast), sonnet (balanced), opus (complex)
-context: fork                       # Run in isolated sub-agent, preserves main context
-agent: Explore                      # Route to specialized agent (Explore, Plan, custom)
+Read `${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/references/frontmatter-options.md` for the full field catalog, description patterns, tool selection framework, and execution modifiers.
 
-# Tool access
-allowed-tools:                      # Restrict available tools
-  - Read
-  - Grep
-  - Bash(git:*)
+**Intensional over extensional — apply to all generated content.** State the rule directly with its reasoning rather than listing examples that imply the rule. An intensional rule ("quoted phrases must be verbatim user speech *because* routing matches on literal tokens") generalizes to every input the skill will encounter. An extensional approach requires the reader to reverse-engineer the rule — two reasoning hops instead of one, covering only the shape of those specific examples. Since this skill generates instructions that will themselves guide further generation, the quality of reasoning propagates.
 
-# Lifecycle hooks (optional)
-hooks:
-  PreToolUse:
-    - command: "validation-script.sh"
-  PostToolUse:
-    - command: "cleanup.sh"
+### Step 3 — Write body
 
-# Behavior modifiers
-user-invocable: true                # Show in /command menu (default true)
-disable-model-invocation: true      # Prevent programmatic invocation (commands only)
-argument-hint: [arg1] [arg2]        # Document expected arguments (commands only)
----
-```
-
-### Description Patterns
-
-**For Skills (auto-triggered) — principles:**
-
-- **Third-person framing is a routing signal, not a stylistic choice.** The routing model evaluates the description as a triggering condition. First-person ("Use this skill when...") reads as an instruction to execute. Third-person ("This skill should be used when...") reads as a condition to test. The framing changes how the model interprets the field.
-- **Quoted phrases must be verbatim user speech.** Routing matches on literal token patterns. Write the exact words a user would type, not paraphrases: `"create a hook"` triggers correctly; `"hook creation workflows"` may not.
-- **The description is always in context, even when the skill isn't active.** Every session pays the token cost of every skill's description. Density matters: cover more trigger patterns in fewer words. Avoid restating the skill name or explaining what skills are.
-- **Cover the naive phrasing.** A user who doesn't know this skill exists won't search for it by name — they'll describe their problem in plain language. Include the phrasing someone would use who has never heard of this skill.
-- **3–5 trigger phrases minimum.** Single-phrase descriptions have high miss rates. Varied phrases improve routing coverage across synonym space.
-- **Use `>` scalar, not `|`.** Folded scalar (`>`) collapses newlines to spaces, producing a single continuous string — correct for descriptions. Literal scalar (`|`) preserves newlines, which can create unexpected whitespace when parsed.
-
-```yaml
-# Correct — third-person, verbatim phrases, folded scalar
-description: >
-  This skill should be used when the user asks to "create a hook",
-  "add validation", "implement lifecycle automation", or mentions
-  pre/post tool events.
-
-# Wrong — vague, no trigger phrases, not third-person
-description: Provides guidance for hooks.
-```
-
-**For Commands (user-invoked) — principles:**
-
-- **Verb-first, under 60 chars.** The description appears as a single scannable line in the `/` menu — treat it as a menu label, not a sentence.
-- **Describe the action, not the tool.** "Fix GitHub issue by number" orients by outcome. "GitHub issue fixer" orients by tool name. Users scan for what they want to accomplish.
-
-```yaml
-description: Fix GitHub issue by number
-description: Review code for security issues
-description: Deploy to staging environment
-```
-
-### Body Structure
+**Construction rules:**
+- State objective explicitly in first sentence
+- Use imperative voice ("Analyze", "Generate", "Identify") — no first-person ("I will", "I am")
+- Context only when necessary for understanding
+- XML tags only for complex structured data
+- No "When to Use This Skill" section — body loads only after triggering; routing guidance there is never read by the routing decision
+- Avoid headers deeper than H3 — deep nesting signals content that belongs in `references/`, not `SKILL.md`
+- Use bang-backtick syntax for dynamic context injection when real-time data (git status, file list, env vars) improves the skill without requiring a tool call
 
 Both skills and commands follow the same body pattern:
 
@@ -151,22 +74,7 @@ Brief overview (1-2 sentences).
 3. Step three
 ```
 
-**Key principle**
-- Commands are instructions FOR Claude, not TO the user.
-
-**Construction Rules:**
-- State objective explicitly in first sentence
-- Use imperative voice ("Analyze", "Generate", "Identify")
-- No first-person narrative ("I will", "I am")
-- Context only when necessary for understanding
-- XML tags only for complex structured data
-- Examples only when they clarify expectations — prefer stating the rule directly (intensional) over relying on examples to imply it (extensional); a stated rule generalizes, an example only covers its own shape
-- Every word must earn its place
-- No "When to Use This Skill" section in the body — the body loads only after triggering, so routing guidance placed there is never read by the routing decision
-- Avoid headers deeper than H3 — deep nesting signals content that belongs in `references/`, not `SKILL.md`
-- Use bang-backtick syntax for dynamic context injection when real-time data (git status, file list, env vars) improves the skill without requiring a tool call
-
-### Dynamic Content
+**Dynamic Content:**
 
 | Syntax | Purpose |
 |--------|---------|
@@ -176,111 +84,29 @@ Brief overview (1-2 sentences).
 | `@$1` | Load file from argument |
 | Exclamation + backticks | Execute bash command, include output |
 
-### Progressive Disclosure
+### Step 4 — Script opportunity scan
 
-For complex skills, organize into subdirectories:
+Read `${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/references/script-patterns.md` and apply the five signal patterns to every workflow step in the skill being generated:
 
-```
-skill-name/
-├── SKILL.md          # Core instructions (keep under 500 lines)
-├── scripts/          # Executable code (Python/Bash)
-├── references/       # Docs loaded into context as needed
-├── examples/         # Working code examples users can copy directly
-└── assets/           # Files used in output (templates, icons, fonts)
-```
+| Signal | Question | If yes → |
+|--------|----------|----------|
+| **Repeated Generation** | Does any step produce the same structure with different params across invocations? | Parameterized script in `scripts/` |
+| **Unclear Tool Choice** | Does any step combine multiple tools in a fragile sequence naturally expressible as one function? | Script the procedure |
+| **Rigid Contract** | Can you write `--help` text for this step right now without ambiguity? | CLI candidate — delegate design to `create-cli` |
+| **Dual-Use Potential** | Would a user want to run this step from the terminal, outside the skill workflow? | Design as proper CLI from the start |
+| **Consistency Critical** | Must this step produce bit-for-bit identical output for identical inputs? | Script — never LLM generation |
 
-**scripts/** - Deterministic, token-efficient. May be executed without loading into context. Use when the same code is rewritten repeatedly or reliability is critical.
+For each identified script candidate:
+1. Choose the archetype from `references/script-patterns.md` (init/validate/transform/package/query)
+2. If the interface is non-trivial, delegate to `create-cli` skill to design it
+3. Scaffold the script in `scripts/` using the Python template from `references/script-patterns.md`
+4. Wire it into SKILL.md with: trigger condition, exact invocation, output interpretation
 
-**references/** - Documentation Claude reads while working. Keeps SKILL.md lean. For files >100 lines, include a table of contents. Only load when needed.
+**Wiring rule:** A script reference must state *when* to invoke (trigger condition), *how* to invoke (exact command with flags), and *what to do* with the result (exit code handling, which output fields matter).
 
-**examples/** - Working code examples: complete, runnable scripts, configuration files, template files, real-world usage examples. Users can copy and adapt these directly. Distinct from references (docs) and scripts (utilities).
+### Step 5 — Check delegation
 
-**assets/** - Files NOT loaded into context. Used in output: templates, images, fonts, boilerplate. Example: `assets/hello-world/` for a React template.
-
-#### Progressive Disclosure Patterns
-
-**Pattern 1: High-level guide with references**
-
-```markdown
-# PDF Processing
-
-## Quick start
-Extract text with pdfplumber:
-[code example]
-
-## Advanced features
-- **Form filling**: See references/forms.md
-- **API reference**: See references/api.md
-```
-
-Claude loads references only when needed.
-
-**Pattern 2: Domain-specific organization**
-
-```
-bigquery-skill/
-├── SKILL.md (overview and navigation)
-└── references/
-    ├── finance.md (revenue, billing)
-    ├── sales.md (pipeline, opportunities)
-    └── product.md (API usage, features)
-```
-
-When user asks about sales, Claude only reads sales.md.
-
-**Pattern 3: Variant-based organization**
-
-```
-cloud-deploy/
-├── SKILL.md (workflow + provider selection)
-└── references/
-    ├── aws.md
-    ├── gcp.md
-    └── azure.md
-```
-
-User chooses AWS → Claude only reads aws.md.
-
-### Execution Modifiers
-
-Use these when the default behavior isn't sufficient:
-
-- **`context: fork`** — Run in isolated sub-agent. Use for heavy workflows that would pollute main context, or when you need clean separation.
-
-- **`agent: [type]`** — Route to a specialized agent. Examples: `Explore` for codebase search, `Plan` for architecture decisions, or custom agents you've defined. Requires `context: fork`.
-
-- **`model: [level]`** — Override the model. Valid values: `haiku` (fast, cheap, simple tasks), `sonnet` (balanced default), `opus` (complex reasoning). Omit to inherit from the current conversation (`inherit` is the implicit default).
-
-- **`hooks`** — Run scripts before/after tool use, scoped to this skill's lifecycle. Useful for validation, logging, or side effects.
-
-- **`disable-model-invocation: true`** — Prevent Claude from auto-loading this skill. Use for skills you want to invoke manually only (commands only).
-
-- **`user-invocable: false`** — Hide from the `/` command menu. Use for background-knowledge skills that should trigger automatically but not appear as slash commands.
-
-### Tool Selection
-
-Default generous, restrict only when needed. The principle: restrict tools that have destructive or side-effect potential, not tools that are read-only or purely generative.
-
-| Tier | Tools | Why |
-|------|-------|-----|
-| **Always allow** | Read, Grep, Glob | Read-only, no side effects |
-| **Usually allow** | Edit, Write, WebSearch, WebFetch, Task | Core work tools; restrict if skill is deliberately read-only |
-| **Scope Bash** | `Bash(git:*)`, `Bash(npm:*)`, `Bash(pytest:*)` | Bash is the highest blast-radius tool — scope to known commands |
-| **If interactive** | AskUserQuestion | Required any time the skill needs user decisions mid-workflow |
-| **If delegating** | Skill | Required to invoke other skills programmatically |
-| **If notebooks** | NotebookEdit | Jupyter-specific; omit unless skill touches `.ipynb` files |
-| **If plan-gated** | ExitPlanMode, EnterPlanMode | For workflows requiring explicit user approval before execution |
-
-### Before Finalizing
-
-Scan for existing resources:
-- Does a skill/command already handle part of this?
-- Can this delegate to existing workflows?
-- Is there redundancy with other features?
-
-#### Delegation & Modularization
-
-Before finalizing, scan for delegation opportunities:
+Scan for existing resources before finalizing:
 
 ```
 Review available: skills, commands, agents, MCPs
@@ -289,70 +115,29 @@ For each workflow step, ask: "Do we already have this?"
 
 **Common delegation patterns:**
 - Git commits → `SlashCommand: /commit`
-- Code review → `skill: /code-review`
+- Code review → `Skill: /code-review`
 
 **Always use fully qualified names:**
 - `Skill: plugin-dev:hook-development` (not just "hook-development")
 - `SlashCommand: /plugin-dev:create-plugin` (not just "create-plugin")
 - `Task: subagent_type=plugin-dev:agent-creator`
 
-### Script Opportunity Scan
+### Step 6 — Validate
 
-**Load `${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/references/script-patterns.md` before this step.** Apply the five signal
-patterns to every workflow step in the skill being generated:
+When generating a new skill directory (not editing an existing single file):
 
-| Signal | Question | If yes → |
-|--------|----------|----------|
-| **Repeated Generation** | Does any step produce the same structure with different params across invocations? | Parameterized script in `scripts/` |
-| **Unclear Tool Choice** | Does any step combine multiple tools in a fragile sequence to do something naturally expressible as one function? | Script the procedure |
-| **Rigid Contract** | Can you write `--help` text for this step right now without ambiguity? | CLI candidate — delegate design to `create-cli` |
-| **Dual-Use Potential** | Would a user want to run this step from the terminal, outside the skill workflow? | Design as proper CLI from the start |
-| **Consistency Critical** | Must this step produce bit-for-bit identical output for identical inputs? | Script — never LLM generation |
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/scripts/validate_skill.py <skill-directory> --output json
+```
 
-For each identified script candidate:
-1. Choose the archetype from `script-patterns.md` (init/validate/transform/package/query)
-2. If the interface is non-trivial, delegate to `create-cli` skill to design it
-3. Scaffold the script in `scripts/` using the Python template from `script-patterns.md`
-4. Wire it into SKILL.md with: trigger condition, exact invocation, output interpretation
-
-**Wiring rule:** A script reference must state *when* to invoke (trigger condition),
-*how* to invoke (exact command with flags), and *what to do* with the result (exit code
-handling, which output fields matter). Vague references ("run the script if needed") are
-invisible to the skill workflow in practice.
+Exit 0 = proceed to Phase 3. Exit 1 = parse the `errors` array; each entry has `field`, `message`, `severity`. Resolve all `critical` and `major` items before writing to disk.
 
 ### Explain Your Choices
 
 When presenting the generated skill/command to the user, briefly explain:
 - **What you set and why** — "Added `context: fork` because this workflow generates heavy output"
 - **What you excluded and why** — "Left `model` unset (inherits default), `hooks` omitted (no validation needed)"
-- **What they might want to change** — "You may want to add more trigger phrases if this doesn't activate reliably"
-
-This transparency helps users understand the design and provide feedback.
-
-### Bundled Scripts
-
-This skill includes helper scripts to accelerate skill creation.
-
-**Initialize a new skill:**
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/scripts/init_skill.py <name> --path <dir> [--resources scripts,references,assets] [--examples]
-```
-
-Creates a skill directory with templated SKILL.md and optional resource directories.
-
-**Validate a skill:**
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/scripts/validate_skill.py <skill-directory>
-```
-
-Checks frontmatter format, naming conventions, description completeness, and body content.
-
-**Package for distribution:**
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/scripts/package_skill.py <skill-directory> [output-dir]
-```
-
-Creates a `.skill` file (zip format) after validation passes.
+- **Add more trigger phrases if routing misses expected inputs**
 
 ## Phase 3: Deliver
 
@@ -382,9 +167,9 @@ Summarize what was created:
 - How to invoke/trigger
 - Suggested test scenario
 
-## Evaluation
+## Phase 4: Evaluate
 
-**Evaluate the generated/optimized prompt:**
+Score the generated skill/command:
 
 | Dimension | Criteria |
 |-----------|----------|
@@ -394,16 +179,45 @@ Summarize what was created:
 | **Completeness (0-10)** | Covers requirements without gaps or excess |
 | **Usability (0-10)** | Practical, actionable, appropriate for target use |
 
-**Target: 9.0/10.0**
+**Target: 9.0/10.0.** If below, refine once addressing the weakest dimension, then deliver.
 
-Present evaluation, then:
-- If < 9.0: Refine addressing weakness, re-evaluate once
-- If ≥ 9.0: Proceed to delivery
+## Bundled Scripts
 
+**Initialize a new skill — invoke at Step 1 when creating a new skill directory (not when editing an existing file):**
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/scripts/init_skill.py <name> --path <dir> [--resources scripts,references,assets] [--examples]
+```
+
+Exit 0 = directory created, proceed to Step 2. Exit 1 = naming collision; ask user whether to overwrite or rename.
+
+**Validate a skill — invoke at Step 6 before delivering:**
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/scripts/validate_skill.py <skill-directory> --output json
+```
+
+Exit 0 = proceed to Phase 3. Exit 1 = parse `errors` array; resolve all `critical` and `major` items before writing.
+
+**Package for distribution — invoke only when user explicitly requests a distributable file:**
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/scripts/package_skill.py <skill-directory> [output-dir]
+```
+
+Exit 0 = `.skill` file created at output path. Exit 1 = validation failed; read stdout for details.
+
+## Degrees of Freedom
+
+Match instruction specificity to the task's fragility and variability:
+
+| Level | When to Use | Format |
+|-------|-------------|--------|
+| **High freedom** | Multiple valid approaches, context-dependent decisions | Text instructions, heuristics |
+| **Medium freedom** | Preferred pattern exists, some variation acceptable | Pseudocode, scripts with parameters |
+| **Low freedom** | Fragile operations, consistency critical, specific sequence required | Exact scripts, few parameters |
 
 ## Quality Standards
-
-Apply Context Engineering Principles (see above). Additionally:
 
 **Format Economy:**
 - Simple task → direct instruction, no sections
