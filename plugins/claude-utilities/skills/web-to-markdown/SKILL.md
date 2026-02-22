@@ -1,40 +1,58 @@
 ---
 name: web-to-markdown
 description: >
-  Convert any webpage to clean markdown using ezycopy CLI. Use when user asks to
-  "convert this page to markdown", "extract this webpage", "save this article",
-  "grab content from URL", "get markdown from this link", "scrape this page",
-  provides a URL to extract, or wants clean web content without ads and clutter.
+  This skill should be used when the user asks to "convert this page to markdown",
+  "extract this webpage", "save this article", "grab content from URL", "get markdown
+  from this link", "scrape this page", provides a URL to extract, or wants clean web
+  content without ads and clutter.
+argument-hint: "<URL>"
+allowed-tools:
+  - Bash(ezycopy:*)
+  - Bash(curl:*)
+  - AskUserQuestion
 ---
 
-# EzyCopy CLI
+# Web-to-Markdown via EzyCopy
 
-Extracts clean markdown from URLs. Default: fast HTTP fetch. Use `--browser` for Chrome when needed.
+Extract clean markdown from any URL using the `ezycopy` CLI.
 
-## Usage
+## Phase 1: Determine Extraction Mode
+
+Default mode uses fast HTTP fetch. Add `--browser` when the page relies on client-side
+JavaScript to render its content or when authentication cookies are required — the default
+fetcher only sees the raw HTML response, not the JS-rendered DOM.
+
+Common `--browser` cases: Twitter/X, single-page applications, paywalled content.
+
+### Flags
+
+- `-c` — copy output to clipboard
+- `-o <path>` — save to file or directory
+- `--browser` — use headless Chrome for JS-rendered or authenticated pages
+- `--no-images` — strip image links
+- `-t <duration>` — timeout (default: 30s)
+
+## Phase 2: Execute
+
+Run `ezycopy <URL> [flags]` with the chosen mode.
+
+In `--browser` mode: run as a foreground process and do not redirect stderr with `2>&1`.
+Chrome outputs diagnostic messages to stderr that should flow naturally rather than
+polluting stdout capture.
+
+## Phase 3: Handle Failure
+
+If the output is empty or suspiciously short and `--browser` was not used, retry with
+`--browser` — the site likely requires JS rendering.
+
+If `ezycopy` is not found, ask the user before installing:
 
 ```
-ezycopy <URL> [flags]
+curl -sSL https://raw.githubusercontent.com/gupsammy/EzyCopy/main/install.sh | sh
 ```
 
-**Flags:**
-- `-c` — Copy output to clipboard
-- `-o <path>` — Save to file/directory
-- `--browser` — Use Chrome (for JS-heavy or authenticated sites)
-- `--no-images` — Strip image links
-- `-t <duration>` — Timeout (default: 30s)
+## Phase 4: Deliver
 
-## When to use `--browser`
-
-- Twitter/X, SPAs, or JS-rendered sites
-- Authenticated/paywalled content
-- If default returns empty or suspiciously short content
-
-## Execution Notes
-
-- When using `--browser` mode, run as a foreground process
-- Don't use `2>&1` - let stderr flow naturally
-
-## Install
-
-If not installed: `curl -sSL https://raw.githubusercontent.com/gupsammy/EzyCopy/main/install.sh | sh`
+Present the extracted markdown to the user. If the user requested a file save, use `-o`.
+If they requested clipboard, use `-c`. When no explicit destination was given, display the
+content directly.
