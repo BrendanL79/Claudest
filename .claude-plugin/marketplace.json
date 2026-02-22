@@ -14,7 +14,7 @@
     {
       "name": "claude-utilities",
       "description": "A collection of useful utilities, tools, and skills for Claude Code",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "source": "./plugins/claude-utilities"
     },
     {
@@ -37,8 +37,8 @@
     },
     {
       "name": "claude-content",
-      "description": "Content creation skills: image generation, editing, and multi-reference composition",
-      "version": "0.1.0",
+      "description": "Content creation skills: image generation, video compression, conversion, GIF creation, social media formatting, and audio extraction",
+      "version": "0.2.0",
       "source": "./plugins/claude-content"
     }
   ]
