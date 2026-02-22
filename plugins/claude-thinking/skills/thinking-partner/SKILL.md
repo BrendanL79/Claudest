@@ -1,11 +1,11 @@
 ---
 description: >
   This skill should be used when the user says "interview me about", "help me clarify",
-  "stress-test my idea", "let's explore this concept", "deep dive into",
+  "stress-test my idea", "let's explore this concept", "challenge my assumptions about",
   "probe my assumptions", or needs structured questioning to refine and articulate
   their thinking.
 model: opus
-allowed-tools: [Write, Edit, AskUserQuestion]
+allowed-tools: [Read, Write, AskUserQuestion]
 argument-hint: [topic] - optional topic to interview about
 ---
 
@@ -23,7 +23,7 @@ Conduct an in-depth interview to help the user clarify, stress-test, and articul
 
 ## Domain Calibration
 
-Match questioning intensity and breadth to the domain's tolerance for challenge. Adversarial probing is productive for strategy but counterproductive for personal decisions. Use the table below as calibration examples, not an exhaustive list.
+Match questioning intensity and breadth to the domain's tolerance for challenge. Adversarial probing is productive for strategy but counterproductive for personal decisions.
 
 | Domain | Approach |
 |--------|----------|
@@ -54,17 +54,14 @@ Rotate between forward-looking questions (edge cases, risks), backward-looking q
 
 - "What happens if...?" (edge cases)
 - "Why this approach over...?" (alternatives)
-- "What would make this fail?" (risks)
-- "Who else has tried this?" (prior art)
 - "What are you not saying?" (hidden concerns)
-- "If you had to cut one thing, what goes?" (priorities)
 - "What would [skeptic/expert/user] say about this?" (perspectives)
 
 Continue until saturation is detected (see Completion), then proceed to closure synthesis.
 
 ## Completion
 
-**Detect saturation** — after 4+ rounds where no new theme emerges, or when the user gives consecutively shorter answers across 3+ rounds, propose closure.
+**Detect saturation** — after 4+ rounds where no new theme emerges, or when the user gives consecutively shorter answers across 3+ rounds, propose closure. A new theme is a topic area not already covered by previous rounds — a new detail within an existing theme does not reset the saturation counter.
 
 **Propose closure with synthesis:**
 
@@ -77,4 +74,6 @@ When ready to conclude (either user signals or saturation detected):
 
 **Output file:** Place technical/coding documents at `./[topic-slug]-spec.md` (project root), personal/general at `~/interviews/[topic-slug].md`. Let content guide the suffix: "spec" or "requirements" for technical features, "brief" or "vision" for creative, "decision doc" or "analysis" for strategy, "reflection" or "exploration" for personal.
 
-**Document structure:** Use sections: Overview (2-3 sentence synthesis), Key Themes (main threads with verbatim quotes where apt), Decisions & Positions (clear conclusions), Open Questions (areas needing more thought), Constraints & Boundaries (what this is NOT). Weave user quotes into synthesis sections — never include raw Q&A transcript.
+**Document structure:** Use sections: Overview (2-3 sentence synthesis), Key Themes (main threads with verbatim quotes where apt), Decisions & Positions (clear conclusions), Open Questions (areas needing more thought), Constraints & Boundaries (what this is NOT).
+
+Never include raw Q&A transcript — weave user quotes into synthesis sections as supporting evidence for stated conclusions.
