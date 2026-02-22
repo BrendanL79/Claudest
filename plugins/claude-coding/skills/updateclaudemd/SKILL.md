@@ -4,9 +4,8 @@ description: >
   This skill should be used when the user asks to update, refresh, optimize, or
   clean up CLAUDE.md, or when documentation is stale, verbose, or out of sync
   with codebase reality. Triggers on "update CLAUDE.md", "refresh the docs",
-  "sync claude config", "optimize project instructions", "clean up CLAUDE.md",
-  "improve CLAUDE.md", "fix CLAUDE.md".
-argument-hint: (no arguments)
+  "sync CLAUDE.md with the codebase", "optimize project instructions",
+  "clean up CLAUDE.md", "improve CLAUDE.md", "fix CLAUDE.md".
 allowed-tools:
   - Read
   - Glob
@@ -30,9 +29,9 @@ Content in CLAUDE.md is justified only if it changes how Claude acts in the next
 
 ## Step 1: Read Current State and Explore Codebase
 
-Read the existing `CLAUDE.md` and note its line count, section structure, and any content that looks stale or duplicated. Then explore the project systematically: read configuration files (package.json, Cargo.toml, requirements.txt, etc.), map the directory structure, identify the tech stack, and note established patterns and conventions. Focus on what would change how a future Claude session works in this codebase.
+If no `CLAUDE.md` exists, inform the user and begin from scratch using codebase exploration only. Otherwise, read the existing `CLAUDE.md` and note its line count, section structure, and any content that looks stale or duplicated. Then explore the project systematically: read configuration files (package.json, Cargo.toml, requirements.txt, etc.), map the directory structure, identify the tech stack, and note established patterns and conventions. Focus on what would change how a future Claude session works in this codebase.
 
-Stop exploration when the major directories, tech stack, and 3-5 key patterns are identified. Do not attempt exhaustive coverage.
+Stop exploration when the major directories, tech stack, and 3-5 key patterns are identified — patterns that affect how code should be written, tested, or deployed in this project. Do not attempt exhaustive coverage.
 
 ## Step 2: Reconcile and Optimize
 
@@ -40,9 +39,13 @@ Compare codebase reality with current documentation. Apply the governing princip
 
 Verify that commands, paths, dependencies, and environment variables are still accurate.
 
-Cut: code blocks duplicating source files, verbose explanations, one-time setup troubleshooting, philosophical "why this matters" sections, and any content that restates what Claude would infer from the codebase itself.
+The dividing line: remove content Claude would infer from reading the codebase itself; keep content that would cause errors or suboptimal behavior without explicit documentation.
 
-Keep: architecture decisions, essential development commands, coding conventions, critical gotchas, and non-obvious behaviors that would cause errors without documentation.
+Cut: code blocks duplicating source files, verbose explanations, one-time setup troubleshooting, philosophical "why this matters" sections, anything Claude can derive from file inspection.
+
+Keep: architecture decisions, essential development commands, coding conventions, critical gotchas, non-obvious behaviors that need documentation to prevent errors.
+
+Proceed to Step 3 when every section has been evaluated against the governing principle and all inaccurate references are corrected.
 
 ## Step 3: Structure for Scanning
 
