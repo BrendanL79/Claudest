@@ -27,7 +27,21 @@ To enable auto-updates, run `/plugin`, go to the Marketplaces tab, and toggle au
 
 ## 📦 Plugins
 
-### claude-memory
+| Plugin | Version | Skills |
+|--------|---------|--------|
+| [claude-memory](#claude-memory) | `0.7.5` | past-conversations · extract-learnings |
+| [claude-research](#claude-research) | `0.1.0` | deep-research · youtube-research |
+| [claude-coding](#claude-coding) | `0.1.8` | commit · push-pr · clean-branches · update-claudemd · make-readme · make-changelog |
+| [claude-skills](#claude-skills) | `0.1.3` | skill-creator · skill-repair |
+| [claude-thinking](#claude-thinking) | `0.1.2` | thinking-partner |
+| [claude-content](#claude-content) | `0.2.1` | image-generation · video-compress · video-convert · video-gif · video-social · audio-extract |
+| [claude-utilities](#claude-utilities) | `0.1.5` | web-to-markdown |
+
+---
+
+<a id="claude-memory"></a>
+
+### 🧠 claude-memory &nbsp; ![v0.7.5](https://img.shields.io/badge/v0.7.5-blue?style=flat-square)
 
 Conversation memory for Claude Code. Recall what happened yesterday, last week, or three weeks ago.
 
@@ -37,13 +51,11 @@ That's what claude-memory provides. It stores every session in a SQLite database
 
 First, automatic context injection. On every session start, a hook queries recent sessions and injects the most recent meaningful one into context. The agent already knows what you worked on last time before you say a word. This is what makes the plan-in-one-session, implement-in-the-next workflow possible.
 
-Second, on-demand search. A `past-conversations` skill lets the agent (or you) search conversation history by keywords, browse recent sessions, or run structured analyses like retrospectives and gap-finding. Ask "what did we decide about the API design?" and the agent searches your history.
+Second, on-demand search. The `past-conversations` skill lets the agent (or you) search conversation history by keywords, browse recent sessions, or run structured analyses like retrospectives and gap-finding. Ask "what did we decide about the API design?" and the agent searches your history. The search works because the agent constructs the queries, not you — it extracts keywords, sends them to FTS5, and iterates if the first results aren't good enough. No vector database, no embedding pipeline, no external dependencies. Just SQLite and Python's standard library.
 
-The search works because the agent constructs the queries, not you. When you ask about "the database migration," the agent extracts the right keywords, sends them to FTS5, and iterates if the first results aren't good enough. The agent compensates for the simplicity of the storage layer. No vector database, no embedding pipeline, no external dependencies. Just SQLite and Python's standard library.
+The `extract-learnings` skill is a route from recall memory into archival memory. It reads past conversations, identifies non-obvious insights and gotchas worth preserving, and proposes placing them at the right layer in the memory hierarchy (global CLAUDE.md, repo CLAUDE.md, MEMORY.md, or topic files) with diffs and rationale. Learnings that would otherwise evaporate when context resets get distilled into persistent knowledge.
 
-The plugin also includes an `extract-learnings` skill, a route from recall into archival memory. It reads past conversations, identifies non-obvious insights and gotchas worth preserving, and proposes placing them at the right layer in the memory hierarchy (CLAUDE.md, MEMORY.md, or topic files) with diffs and rationale. Learnings that would otherwise evaporate when context resets get distilled into persistent knowledge.
-
-For the full story behind the architecture, I wrote about the design decisions and what I learned about how agents actually use memory: [What I Learned Building a Memory System for My Coding Agent](https://www.reddit.com/r/ClaudeCode/comments/1r1w397/comment/o5294lk/).
+For the full story behind the architecture: [What I Learned Building a Memory System for My Coding Agent](https://www.reddit.com/r/ClaudeCode/comments/1r1w397/comment/o5294lk/).
 
 ```
 /plugin install claude-memory@claudest
@@ -51,31 +63,62 @@ For the full story behind the architecture, I wrote about the design decisions a
 
 ---
 
-### claude-utilities
+<a id="claude-research"></a>
 
-Useful tools that don't fit in a specific plugin. Two skills for extracting content from the web.
+### 🔍 claude-research &nbsp; ![v0.1.0](https://img.shields.io/badge/v0.1.0-blue?style=flat-square)
 
-**web-to-markdown** converts any webpage to clean markdown, stripping ads, navigation, popups, and cookie banners. Uses [ezycopy](https://github.com/gupsammy/EzyCopy) under the hood. Triggers on "convert this page to markdown", "extract this webpage", "save this article", "grab content from URL", "scrape this page".
+Cross-platform research skills for Claude Code. Two complementary tools: a multi-source deep research pipeline and a standalone YouTube research toolkit.
+
+`deep-research` is an autonomous research agent that queries Reddit, X/Twitter, YouTube, and the web simultaneously, then synthesizes what it finds. It classifies your intent — recommendations, news, prompting techniques, or general exploration — and shapes the queries accordingly. Each source runs in full before synthesis begins. Results are weighted by engagement (upvotes, likes, reposts) because engagement is aggregate human signal. A stats block at the end shows exactly what was searched: thread counts, upvote totals, video counts, transcripts read. Every cited claim traces back to a real source — @handles, subreddit names, channel names — never raw URLs.
+
+Sources are detected at runtime. If reddit-cli, bird, or brave-cli aren't installed, the pipeline skips them silently and surfaces setup instructions at the end of the report. The web search falls back to Claude's native `WebSearch` when brave-cli isn't configured, so you always get results from at least one source.
+
+`youtube-research` is a YouTube research toolkit built on `yt-dlp`. In toolkit mode, it exposes individual operations: search with filters (minimum duration, date range, view count), transcript extraction with language selection and optional timestamps, full metadata without downloading, audio in any format (mp3, m4a, opus, wav), channel scanning by tab (videos, shorts, streams, playlists), and batch processing from a URL list. In research mode, it runs as an autonomous multi-step pipeline — search, evaluate, fetch metadata, download transcripts, synthesize — and produces a structured report with source attribution, points of agreement, contradictions, and gaps in coverage.
 
 ```bash
-# Prerequisite
-curl -sSL https://raw.githubusercontent.com/gupsammy/EzyCopy/main/install.sh | sh
-```
-
-**youtube-research** is a YouTube research workflow built on `yt-dlp`. Search by query, fetch a video's transcript or subtitles in any available language, download audio, scan a channel's uploads, or batch-collect transcripts across a list of videos. Designed for research tasks where you want structured data from YouTube — metadata, captions, and audio — not just a link. Triggers on "search YouTube", "get a transcript", "download subtitles", "extract audio from YouTube", "scan a channel", "summarize this video".
-
-```bash
-# Prerequisite
-pip install yt-dlp
+# Prerequisites — install only what you need, each source is optional
+pip install yt-dlp           # YouTube (used by both skills)
+pip install reddit-cli       # Reddit
+brew install bird            # X / Twitter
+# brave-cli — see https://github.com/gupsammy/brave-cli
+# Web search falls back to Claude's native WebSearch if brave-cli is missing
 ```
 
 ```
-/plugin install claude-utilities@claudest
+/plugin install claude-research@claudest
 ```
 
 ---
 
-### claude-skills
+<a id="claude-coding"></a>
+
+### 💻 claude-coding &nbsp; ![v0.1.8](https://img.shields.io/badge/v0.1.8-blue?style=flat-square)
+
+Coding workflow skills for Claude Code. Six skills covering the commit loop, project maintenance, and documentation.
+
+Every coding session involves the same decisions: what belongs in one commit vs multiple, whether you're on the right branch before pushing, what to call the PR, whether your project docs still reflect reality. These skills encode the right defaults and handle the mechanical parts so the workflow stays uninterrupted.
+
+`commit` analyzes your changes, groups files by purpose rather than directory, runs the project's linter if one is configured, and writes a conventional commit message. It handles multi-concern changes by splitting them and committing foundational changes first.
+
+`push-pr` detects if you're on `main` with unpushed commits, cuts a feature branch before pushing, and creates or updates a PR. It calls `commit` first if there are uncommitted changes. New PRs are opened; subsequent pushes to the same branch add a comment with the new commits.
+
+`clean-branches` finds merged and stale branches (no commits in 30+ days), shows them categorized as safe-to-delete vs stale, and confirms before touching anything. Protected branches (main, master, develop, release/*) are never touched. Remote deletion requires explicit confirmation.
+
+`update-claudemd` audits and optimizes your project's CLAUDE.md. Reads the current file, explores the codebase to verify accuracy, cuts anything that doesn't change how Claude acts in the next session, and rewrites for scannability. Creates a `.bak` backup before writing.
+
+`make-readme` generates a professional `README.md` through a structured interview. Asks about project type, depth (minimal → 50 lines, standard → structured with sections and badges, comprehensive → full documentation with API reference, FAQ, and TOC), and header style, then writes the full file in one pass with shields.io badges and styled headers.
+
+`make-changelog` creates or updates `CHANGELOG.md` from git history using Keep-a-Changelog format. Detects existing changelog state, determines the scope (fresh, fill, or unreleased-only), and launches one Haiku subagent per version range in parallel for token-efficient processing. Categorizes commits by user-observable impact rather than commit prefix.
+
+```
+/plugin install claude-coding@claudest
+```
+
+---
+
+<a id="claude-skills"></a>
+
+### ✍️ claude-skills &nbsp; ![v0.1.3](https://img.shields.io/badge/v0.1.3-blue?style=flat-square)
 
 Skill authoring tools for Claude Code. Two complementary skills: one that generates new skills and commands from scratch, one that audits and improves existing ones.
 
@@ -93,29 +136,9 @@ Both skills share a `references/` library: a skill anatomy gold standard, a comp
 
 ---
 
-### claude-coding
+<a id="claude-thinking"></a>
 
-Coding workflow skills for Claude Code. Five skills covering the commit loop, project maintenance, and documentation.
-
-Every coding session involves the same decisions: what belongs in one commit vs multiple, whether you're on the right branch before pushing, what to call the PR, whether your project docs still reflect reality. These skills encode the right defaults and handle the mechanical parts so the workflow stays uninterrupted.
-
-`commit` analyzes your changes, groups files by purpose rather than directory, runs the project's linter if one is configured, and writes a conventional commit message. It handles multi-concern changes by splitting them and committing foundational changes first.
-
-`push-pr` detects if you're on `main` with unpushed commits, cuts a feature branch before pushing, and creates or updates a PR. It calls `commit` first if there are uncommitted changes. New PRs are opened; subsequent pushes to the same branch add a comment with the new commits.
-
-`clean-branches` finds merged and stale branches (no commits in 30+ days), shows them categorized as safe-to-delete vs stale, and confirms before touching anything. Protected branches (main, master, develop, release/*) are never touched. Remote deletion requires explicit confirmation.
-
-`updateclaudemd` audits and optimizes your project's CLAUDE.md. Reads the current file, explores the codebase to verify accuracy, cuts anything that doesn't change how Claude acts in the next session, and rewrites for scannability. Creates a `.bak` backup before writing.
-
-`readme-maker` generates a professional `README.md` through a structured interview. Asks about project type, depth (minimal → 50 lines, standard → structured with sections and badges, comprehensive → full documentation with API reference, FAQ, and TOC), and header style, then writes the full file in one pass with shields.io badges and styled headers.
-
-```
-/plugin install claude-coding@claudest
-```
-
----
-
-### claude-thinking
+### 🤔 claude-thinking &nbsp; ![v0.1.2](https://img.shields.io/badge/v0.1.2-blue?style=flat-square)
 
 Structured thinking tools for Claude Code. Skills that use dialogue to help you clarify, stress-test, and articulate ideas, then produce a written artifact.
 
@@ -129,7 +152,9 @@ Some of the best thinking happens in conversation, but unstructured conversation
 
 ---
 
-### claude-content
+<a id="claude-content"></a>
+
+### 🎬 claude-content &nbsp; ![v0.2.1](https://img.shields.io/badge/v0.2.1-blue?style=flat-square)
 
 Content creation and processing tools for Claude Code. Six skills covering image generation and the full video/audio manipulation workflow.
 
@@ -151,6 +176,25 @@ Requires `ffmpeg` and `ffprobe`. Image generation additionally requires `GEMINI_
 
 ```
 /plugin install claude-content@claudest
+```
+
+---
+
+<a id="claude-utilities"></a>
+
+### 🔧 claude-utilities &nbsp; ![v0.1.5](https://img.shields.io/badge/v0.1.5-blue?style=flat-square)
+
+Useful tools that don't fit in a specific plugin.
+
+`web-to-markdown` converts any webpage to clean markdown, stripping ads, navigation, popups, and cookie banners. Uses [ezycopy](https://github.com/gupsammy/EzyCopy) under the hood. Triggers on "convert this page to markdown", "extract this webpage", "save this article", "grab content from URL", "scrape this page".
+
+```bash
+# Prerequisite
+curl -sSL https://raw.githubusercontent.com/gupsammy/EzyCopy/main/install.sh | sh
+```
+
+```
+/plugin install claude-utilities@claudest
 ```
 
 ---

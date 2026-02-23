@@ -1,6 +1,6 @@
 # claude-coding
 
-Coding workflow skills for Claude Code. Five skills covering the commit loop, project maintenance, and documentation: stage and commit with conventional format, push and open a PR with smart branch handling, safely prune merged or stale branches, keep your CLAUDE.md accurate and concise, and generate professional READMEs through a structured interview.
+Coding workflow skills for Claude Code. Six skills covering the commit loop, project maintenance, and documentation: stage and commit with conventional format, push and open a PR with smart branch handling, safely prune merged or stale branches, keep your CLAUDE.md accurate and concise, generate professional READMEs through a structured interview, and create or update a changelog from git history.
 
 ## Why
 
@@ -35,17 +35,23 @@ Safely remove merged and stale git branches with confirmation. Finds branches al
 
 Triggers on: "clean up branches", "delete merged branches", "prune stale branches", "git branch cleanup", "remove old branches".
 
-### updateclaudemd
+### update-claudemd
 
 Audit and optimize your project's CLAUDE.md file. Reads the current file, explores the codebase to verify accuracy, cuts anything that doesn't change how Claude acts in the next session, and rewrites for scannability. Creates a `.bak` backup before writing. Targets 150-250 lines of actionable content.
 
 Triggers on: "update CLAUDE.md", "refresh the docs", "sync claude config", "optimize project instructions", "clean up CLAUDE.md", "improve CLAUDE.md", "fix CLAUDE.md".
 
-### readme-maker
+### make-readme
 
 Generate a professional `README.md` through a structured interview. Detects the project type from manifest files, then asks about depth (minimal, standard, or comprehensive), header style, sections, and badges. Minimal produces a 50-line focused doc; standard adds structured sections and shields.io badges; comprehensive adds a full Table of Contents, API reference, FAQ, and back-to-top links throughout. Writes the complete file in one pass.
 
 Triggers on: "create a README", "generate a README", "make a readme", "write a README for my project", "add a README", "document my project", "readme with badges".
+
+### make-changelog
+
+Create or update `CHANGELOG.md` from git history using Keep-a-Changelog format. Detects existing changelog state and determines scope (fresh, fill, or unreleased-only). Launches one Haiku subagent per version range in parallel for token-efficient processing. Categorizes commits by user-observable impact rather than commit prefix, with present-tense imperative entries.
+
+Triggers on: "create a changelog", "generate a changelog", "update my changelog", "fill in the changelog", "changelog from git history", "write changelog", "release notes", "my project needs a CHANGELOG".
 
 ## License
 

@@ -1,5 +1,5 @@
 ---
-name: updateclaudemd
+name: update-claudemd
 description: >
   This skill should be used when the user asks to update, refresh, optimize, or
   clean up CLAUDE.md, or when documentation is stale, verbose, or out of sync
