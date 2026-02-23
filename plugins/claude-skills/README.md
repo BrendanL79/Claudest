@@ -1,12 +1,12 @@
 # claude-skills
 
-Skill authoring tools for Claude Code. Three complementary skills: one generates skills from scratch, one audits for structural correctness, one improves for effectiveness.
+Skill authoring tools for Claude Code. Four complementary skills: one generates skills from scratch, one audits for structural correctness, one improves for effectiveness, and one designs CLI interfaces for the scripts those skills produce.
 
 ## Why
 
 Writing a good Claude Code skill is harder than it looks. The description has to be precise enough to route reliably while being dense enough to not waste tokens on every session it doesn't trigger. The body has to be tight enough for consistent outcomes but not so prescriptive that it suppresses the model's ability to generalize. Workflow steps that should be deterministic scripts get left as inline prose that the model re-generates differently on each run. And most skills that "work" are missing infrastructure — reference files for domain-specific data, scripts for fragile operations, examples for outputs users will adapt — that would make them substantially better.
 
-These three skills exist to close that gap: `create-skill` generates skills with these properties built in, `repair-skill` diagnoses structural violations, and `improve-skill` tests effectiveness against user goals.
+These four skills exist to close that gap: `create-skill` generates skills with these properties built in, `repair-skill` diagnoses structural violations, `improve-skill` tests effectiveness against user goals, and `create-cli` designs the CLI interfaces for the scripts that deterministic workflow steps get extracted into.
 
 ## Installation
 
@@ -15,7 +15,7 @@ These three skills exist to close that gap: `create-skill` generates skills with
 /plugin install claude-skills@claudest
 ```
 
-No dependencies. Both skills work with whatever Claude model is running.
+No dependencies. All skills work with whatever Claude model is running.
 
 ## Skills
 
@@ -57,9 +57,21 @@ The skill starts by understanding user intent via AskUserQuestion — establishi
 
 Findings are presented grouped by outcome type — new features, UX improvements, accuracy fixes, efficiency gains — and the user selects which to apply before any edits are made.
 
+### create-cli
+
+Design a CLI's surface area — syntax, flags, subcommands, output contracts, error codes, and configuration — before writing implementation code. Triggers on phrases like "design a CLI", "help me design command-line flags", "what flags should my tool have", "create a CLI spec", "refactor my CLI interface", or "design a CLI my agent can call".
+
+Based on a design by [steipete](https://github.com/steipete); this is a modified version adapted for agent-aware CLI workflows.
+
+The skill is built around a key distinction: a CLI consumed by an agent has different requirements than one designed only for human terminal use. Agents are always non-TTY, cannot tolerate ambiguous exit codes, parse stderr as structured data, and need compound output that reduces follow-up tool calls. The skill applies that lens throughout.
+
+Phase 1 loads `cli-guidelines.md` as the default rubric. Phase 2 clarifies command name, primary consumer (agent, human, scripted automation, or mixed), input sources, output contract, interactivity needs, and config model — using best-guess defaults if the user is unsure or provides an existing spec. Phase 3 applies a unified set of agent-first conventions: TTY auto-detection (pretty output when stdout is a TTY; structured JSON when piped or non-TTY), NDJSON for list commands to enable streaming, structured error objects on stderr with an `error` code and an executable `hint` field, consistent flag naming across subcommands so agent callers can learn patterns once, and compound output on mutating commands to avoid follow-up calls. For deeper context on these conventions, the skill can load `references/agent-aware-design.md`. Phase 4 delivers either a full CLI spec (new designs) or a gap report (audits of existing CLIs), including a command tree, args/flags table, output rules, error and exit code map, safety rules, config/env precedence, and worked examples.
+
+`create-cli` is also called internally by `create-skill` and `repair-skill` when they identify a workflow step with a rigid enough interface to warrant a proper CLI tool rather than an inline code block.
+
 ## Reference Library
 
-All three skills share a `references/` library that they load during their workflows.
+The skills share a `references/` library that they load during their workflows.
 
 `skill-anatomy.md` defines the gold standard at each complexity tier, the three-level loading model (metadata always loaded, SKILL.md on trigger, resources on demand), directory type definitions with when-to-use criteria, the Degrees of Freedom table mapping task fragility to instruction specificity, and a Gap Analysis Checklist for identifying what a skill would benefit from adding.
 

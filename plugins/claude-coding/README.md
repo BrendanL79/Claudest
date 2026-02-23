@@ -1,6 +1,6 @@
 # claude-coding
 
-Coding workflow skills for Claude Code. Six skills covering the commit loop, project maintenance, and documentation: stage and commit with conventional format, push and open a PR with smart branch handling, safely prune merged or stale branches, keep your CLAUDE.md accurate and concise, generate professional READMEs through a structured interview, and create or update a changelog from git history.
+Coding workflow skills for Claude Code. Seven skills covering the commit loop, project maintenance, and documentation: stage and commit with conventional format, push and open a PR with smart branch handling, safely prune merged or stale branches, keep your CLAUDE.md accurate and concise, generate professional READMEs through a structured interview, create or update a changelog from git history, and refresh an existing README against current codebase state.
 
 ## Why
 
@@ -25,7 +25,7 @@ Triggers on: "commit my changes", "commit this", "git commit", "save my work", "
 
 ### push-pr
 
-Push commits and create or update pull requests with automatic branch management. Detects if you're on `main` with unpushed commits and cuts a feature branch before pushing. Creates new PRs or comments on existing ones. Calls the `commit` skill first if there are uncommitted changes.
+Push commits and create or update pull requests with automatic branch management and scope-aware multi-PR splitting. Detects if you're on `main` with unpushed commits and cuts a feature branch before pushing. Analyzes the changeset for size and diversity: if the diff exceeds ~400 lines or spans 3+ distinct commit scopes, it proposes stacked PRs (each targeting the previous cluster's branch) and asks before splitting. Creates new PRs or comments on existing ones. Calls the `commit` skill first if there are uncommitted changes.
 
 Triggers on: "push this", "push my changes", "create a PR", "open a pull request", "make a PR", "submit for review", "send this up", "open PR", "pr please".
 
@@ -52,6 +52,12 @@ Triggers on: "create a README", "generate a README", "make a readme", "write a R
 Create or update `CHANGELOG.md` from git history using Keep-a-Changelog format. Detects existing changelog state and determines scope (fresh, fill, or unreleased-only). Launches one Haiku subagent per version range in parallel for token-efficient processing. Categorizes commits by user-observable impact rather than commit prefix, with present-tense imperative entries.
 
 Triggers on: "create a changelog", "generate a changelog", "update my changelog", "fill in the changelog", "changelog from git history", "write changelog", "release notes", "my project needs a CHANGELOG".
+
+### update-readme
+
+Refresh an existing `README.md` against current codebase state, git history, and changelog content. Runs `make-changelog` first so changelog context is available when revising README sections. Then launches three parallel agents — one to audit stale content and thin sections, one to scan the codebase for the current version and structure, and one to categorize git commits since the README was last touched. Applies updates in priority order: version numbers and badge URLs first, then stale paths and commands, then placeholder cleanup, then new features from git history, then missing standard sections. Falls back to `make-readme` if no substantial README is found. Uses `Edit` for targeted changes and `Write` only when more than 60% of the file changes.
+
+Triggers on: "update my README", "refresh the README", "README is outdated", "sync README with the codebase", "improve my README", "my README is stale", "update readme from git history", "readme is out of date".
 
 ## License
 

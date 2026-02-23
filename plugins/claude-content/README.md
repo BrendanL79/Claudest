@@ -1,4 +1,4 @@
-# claude-content
+# claude-content v0.2.3
 
 Content creation and processing tools for Claude Code. Six skills covering image generation, video manipulation, social media formatting, and audio extraction.
 
@@ -21,7 +21,7 @@ Most content workflows involve the same small set of operations applied repeated
 
 ### generate-image
 
-Generate and edit images using Google's Gemini Pro Image API. Handles three modes: text-to-image (describe what you want), image-to-image (provide a source image and editing instructions), and multi-reference composition (combine elements from multiple source images with a prompt).
+Generate and edit images using Google's Gemini Pro Image API. Handles three modes: text-to-image (describe what you want), image-to-image (provide a source image and editing instructions), and multi-reference composition (combine elements from up to 14 source images with a prompt). Supports batch generation (up to 4 variations), Google Search grounding, and automatic resolution and aspect ratio detection from input images. Every generated image gets a companion `.md` log file containing the prompt used. Images save to `~/Documents/generated images/` by default unless a custom path is specified.
 
 Triggers on: "generate an image", "create a picture", "make me a logo", "edit this image", "remove the background", "change the style", "combine these images", "add text to image", "make a sticker", "product mockup".
 
@@ -51,9 +51,19 @@ Triggers on: "optimize for Instagram", "YouTube Shorts format", "make it 9:16", 
 
 ### extract-audio
 
-Rip the audio track from any video file, with format selection based on use case: FLAC for lossless archival, MP3 VBR for transparent compression at small file sizes, AAC for maximum device compatibility.
+Rip the audio track from any video file, with format selection based on use case: FLAC for lossless archival, MP3 VBR for transparent compression at small file sizes, MP3 128k CBR for podcasts and voice, AAC for mobile and streaming compatibility, WAV for DAW editing, or stream copy when the source is already in the target format. Warns before lossy-to-lossy transcoding. Handles multi-stream files by prompting for stream selection.
 
 Triggers on: "extract audio", "get the mp3", "strip audio from video", "rip audio", "save audio from video", "get the soundtrack", "pull the audio track", "export audio".
+
+## Roadmap
+
+Three FFmpeg skills are planned for a future release:
+
+`video-concat` — join multiple clips end-to-end using the concat demuxer (same codec, instant) or concat filter (handles mixed formats and resolutions with re-encode).
+
+`video-subtitle` — burn SRT or ASS subtitles into video, choosing between soft subs (stream copy) and hard subs (baked in), with font and style override support.
+
+`video-watermark` — overlay a text or image logo using the `drawtext` or `overlay` filter, with full control over position, opacity, and timing.
 
 ## License
 

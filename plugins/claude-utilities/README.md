@@ -1,4 +1,4 @@
-# claude-utilities
+# claude-utilities ![v0.1.7](https://img.shields.io/badge/v0.1.7-blue?style=flat-square)
 
 Useful tools that don't fit in a specific plugin.
 
@@ -15,7 +15,23 @@ Useful tools that don't fit in a specific plugin.
 
 Convert any webpage to clean markdown. Strips ads, navigation, popups, and cookie banners and returns just the article content. Uses [ezycopy](https://github.com/gupsammy/EzyCopy) under the hood.
 
-Triggers on "convert this page to markdown", "extract this webpage", "save this article", "grab content from URL", "scrape this page".
+Triggers on: "convert this page to markdown", "extract this webpage", "save this article", "grab content from URL", "get markdown from this link", "scrape this page", or when you paste a URL and ask for clean content.
+
+**Extraction modes**
+
+The default mode uses a fast HTTP fetch and works for most static pages. For pages that rely on client-side JavaScript to render their content — or that require authentication cookies — pass `--browser` to use headless Chrome instead.
+
+Common `--browser` cases: Twitter/X, single-page applications, paywalled content.
+
+**Flags**
+
+| Flag | Description |
+|------|-------------|
+| `--browser` | Use headless Chrome for JS-rendered or authenticated pages |
+| `-o <path>` | Save output to a file or directory |
+| `-c` | Copy output to clipboard |
+| `--no-images` | Strip image links from output |
+| `-t <duration>` | Set a fetch timeout (default: 30s) |
 
 **Prerequisite:** install ezycopy once before use:
 

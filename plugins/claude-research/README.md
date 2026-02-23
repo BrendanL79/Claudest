@@ -35,9 +35,13 @@ pip install yt-dlp
 
 ### search-youtube
 
-YouTube research toolkit built on `yt-dlp`. Individual operations: search, transcript, metadata, audio extraction, channel scanning, and batch processing. Also runs as an autonomous research pipeline that searches, evaluates, downloads transcripts, and synthesizes a structured report.
+YouTube research toolkit built on `yt-dlp`. Operates in two modes.
 
-Triggers on "search YouTube", "find videos about", "get a transcript", "download subtitles", "extract audio from YouTube", "scan a channel", "research a topic on YouTube".
+Toolkit mode handles individual operations: search, transcript, metadata, audio extraction, channel scanning, and batch processing.
+
+Research mode runs an adaptive multi-round discovery pipeline designed for niche and emerging topics where popular videos often under-serve. Round 1 spawns parallel Task agents across 4-6 query variants and applies niche-first heuristics during evaluation — preferring small technical channels and penalizing high-view generalist content on narrow topics. Round 2 drills into the strongest channels and refines queries using terminology from Round 1 hits. Round 3 confirms candidates via metadata, downloads transcripts in parallel Task agents, and synthesizes a structured report with cross-referenced findings, source attribution, and gaps in coverage.
+
+Triggers on "search YouTube", "find videos about", "get a transcript", "download subtitles", "extract audio from YouTube", "scan a channel", "research a topic on YouTube", "summarize this video", "what is this video about", "analyze a channel", "batch download transcripts".
 
 **Prerequisite:**
 

@@ -75,11 +75,24 @@ Full-text search uses a platform-adaptive cascade: FTS5 with BM25 ranking on sys
 |-------|------|--------|
 | SessionStart | memory-setup.py | Creates `~/.claude-memory/` directory, triggers initial import if DB missing |
 | SessionStart | memory-context.py | Injects previous session context (on startup and clear events) |
-| Stop | memory-sync.py | Background syncs current session to database |
+| Stop | memory-sync.py | Writes session data to a temp file and spawns `sync_current.py` asynchronously |
 
 All hooks are Python for cross-platform compatibility (macOS, Linux, Windows).
 
+### Skills
+
+| Skill | Trigger phrases | What it does |
+|-------|----------------|--------------|
+| recall-conversations | "what did we discuss", "continue where we left off", "remember when", "search my conversations" | Keyword search (FTS5/BM25) and chronological browsing with structured analysis lenses |
+| extract-learnings | "extract learnings", "save this for next time", "remember this pattern", "add this to memory" | Reads past conversations, identifies insights worth preserving, proposes placements in the memory hierarchy |
+
+### Security
+
+Input validation and hardening added in v0.7.0: TOCTOU race prevention in `memory-sync.py` using `tempfile.mkstemp()` with 0o600 permissions, path traversal prevention in `sync_current.py` via UUID format validation and `resolve().relative_to()` boundary checks, FTS injection prevention through `sanitize_fts_term()`, and `PRAGMA foreign_keys = ON` enforcement. Teammate coordination messages and prompt_suggestion subagent noise are filtered from context and search (v0.7.1).
+
 ## Manual Usage
+
+Inside a Claude Code session, use the `/manage-memory` command for database management tasks (sync, search, stats, import). Outside of sessions, the underlying scripts can be run directly:
 
 ```bash
 # Import all conversations into the DB
