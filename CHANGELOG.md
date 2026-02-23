@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add create-cli skill for structured command-line application design
+- Add update-readme skill for intelligent README generation and maintenance
+- Overhaul youtube-research with adaptive multi-round discovery pipeline featuring parallel Task agents and niche-first heuristics for edge-of-tech content
+
+### Changed
+- Rename all skills and commands to verb-first convention for consistent imperative naming across plugins (recall-conversations, manage-memory, convert-to-markdown, brainstorm, run-research, search-youtube, generate-image, compress-video, convert-video, make-gif, share-social, extract-audio)
+
 ## [2026-02-23]
 
 ### Changed

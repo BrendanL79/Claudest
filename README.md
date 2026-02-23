@@ -29,19 +29,19 @@ To enable auto-updates, run `/plugin`, go to the Marketplaces tab, and toggle au
 
 | Plugin | Version | Skills |
 |--------|---------|--------|
-| [claude-memory](#claude-memory) | `0.7.6` | recall-conversations · extract-learnings |
-| [claude-research](#claude-research) | `0.1.1` | run-research · search-youtube |
-| [claude-coding](#claude-coding) | `0.1.8` | commit · push-pr · clean-branches · update-claudemd · make-readme · make-changelog |
-| [claude-skills](#claude-skills) | `0.1.4` | create-skill · repair-skill · improve-skill |
-| [claude-thinking](#claude-thinking) | `0.1.3` | brainstorm |
-| [claude-content](#claude-content) | `0.2.2` | generate-image · compress-video · convert-video · make-gif · share-social · extract-audio |
-| [claude-utilities](#claude-utilities) | `0.1.6` | convert-to-markdown |
+| [claude-memory](#claude-memory) | `0.7.7` | recall-conversations · extract-learnings |
+| [claude-research](#claude-research) | `0.1.3` | run-research · search-youtube |
+| [claude-coding](#claude-coding) | `0.1.9` | commit · push-pr · clean-branches · update-claudemd · make-readme · make-changelog · update-readme |
+| [claude-skills](#claude-skills) | `0.1.5` | create-skill · repair-skill · improve-skill · create-cli |
+| [claude-thinking](#claude-thinking) | `0.1.4` | brainstorm |
+| [claude-content](#claude-content) | `0.2.3` | generate-image · compress-video · convert-video · make-gif · share-social · extract-audio |
+| [claude-utilities](#claude-utilities) | `0.1.7` | convert-to-markdown |
 
 ---
 
 <a id="claude-memory"></a>
 
-### 🧠 claude-memory &nbsp; ![v0.7.6](https://img.shields.io/badge/v0.7.6-blue?style=flat-square)
+### 🧠 claude-memory &nbsp; ![v0.7.7](https://img.shields.io/badge/v0.7.7-blue?style=flat-square)
 
 Conversation memory for Claude Code. Recall what happened yesterday, last week, or three weeks ago.
 
@@ -65,7 +65,7 @@ For the full story behind the architecture: [What I Learned Building a Memory Sy
 
 <a id="claude-research"></a>
 
-### 🔍 claude-research &nbsp; ![v0.1.1](https://img.shields.io/badge/v0.1.1-blue?style=flat-square)
+### 🔍 claude-research &nbsp; ![v0.1.3](https://img.shields.io/badge/v0.1.3-blue?style=flat-square)
 
 Cross-platform research skills for Claude Code. Two complementary tools: a multi-source deep research pipeline and a standalone YouTube research toolkit.
 
@@ -73,7 +73,7 @@ Cross-platform research skills for Claude Code. Two complementary tools: a multi
 
 Sources are detected at runtime. If reddit-cli, bird, or brave-cli aren't installed, the pipeline skips them silently and surfaces setup instructions at the end of the report. The web search falls back to Claude's native `WebSearch` when brave-cli isn't configured, so you always get results from at least one source.
 
-`search-youtube` is a YouTube research toolkit built on `yt-dlp`. In toolkit mode, it exposes individual operations: search with filters (minimum duration, date range, view count), transcript extraction with language selection and optional timestamps, full metadata without downloading, audio in any format (mp3, m4a, opus, wav), channel scanning by tab (videos, shorts, streams, playlists), and batch processing from a URL list. In research mode, it runs as an autonomous multi-step pipeline — search, evaluate, fetch metadata, download transcripts, synthesize — and produces a structured report with source attribution, points of agreement, contradictions, and gaps in coverage.
+`search-youtube` is a YouTube research toolkit built on `yt-dlp`. In toolkit mode, it exposes individual operations: search with filters (minimum duration, date range, view count), transcript extraction with language selection and optional timestamps, full metadata without downloading, audio in any format (mp3, m4a, opus, wav), channel scanning by tab (videos, shorts, streams, playlists), and batch processing from a URL list. In research mode, it runs as an adaptive multi-round discovery pipeline with parallel Task agents and niche-first heuristics. It adjusts search strategy across rounds based on what it finds — starting broad, drilling into the most content-rich sub-niches, pruning dead ends — and produces a structured report with source attribution, points of agreement, contradictions, and gaps in coverage.
 
 ```bash
 # Prerequisites — install only what you need, each source is optional
@@ -92,9 +92,9 @@ brew install bird            # X / Twitter
 
 <a id="claude-coding"></a>
 
-### 💻 claude-coding &nbsp; ![v0.1.8](https://img.shields.io/badge/v0.1.8-blue?style=flat-square)
+### 💻 claude-coding &nbsp; ![v0.1.9](https://img.shields.io/badge/v0.1.9-blue?style=flat-square)
 
-Coding workflow skills for Claude Code. Six skills covering the commit loop, project maintenance, and documentation.
+Coding workflow skills for Claude Code. Seven skills covering the commit loop, project maintenance, and documentation.
 
 Every coding session involves the same decisions: what belongs in one commit vs multiple, whether you're on the right branch before pushing, what to call the PR, whether your project docs still reflect reality. These skills encode the right defaults and handle the mechanical parts so the workflow stays uninterrupted.
 
@@ -110,6 +110,8 @@ Every coding session involves the same decisions: what belongs in one commit vs 
 
 `make-changelog` creates or updates `CHANGELOG.md` from git history using Keep-a-Changelog format. Detects existing changelog state, determines the scope (fresh, fill, or unreleased-only), and launches one Haiku subagent per version range in parallel for token-efficient processing. Categorizes commits by user-observable impact rather than commit prefix.
 
+`update-readme` refreshes an existing `README.md` using current codebase state and git history. Runs three parallel research agents (README audit, codebase scan, git history since last touch), updates the changelog first, then applies targeted edits in priority order: version numbers and badge URLs, stale content, new features, and missing or thin sections.
+
 ```
 /plugin install claude-coding@claudest
 ```
@@ -118,9 +120,9 @@ Every coding session involves the same decisions: what belongs in one commit vs 
 
 <a id="claude-skills"></a>
 
-### ✍️ claude-skills &nbsp; ![v0.1.4](https://img.shields.io/badge/v0.1.4-blue?style=flat-square)
+### ✍️ claude-skills &nbsp; ![v0.1.5](https://img.shields.io/badge/v0.1.5-blue?style=flat-square)
 
-Skill authoring tools for Claude Code. Three complementary skills that cover the full lifecycle: generate, audit, improve.
+Skill authoring tools for Claude Code. Four complementary skills that cover the full lifecycle: generate, audit, improve, and CLI design.
 
 Writing a good skill is harder than it looks. The description has to route correctly without being verbose — it's loaded on every session regardless of whether the skill fires, so every token costs something. The body has to be precise enough to produce consistent outcomes but loose enough that the model isn't re-generating boilerplate that should be a script. The agentic and deterministic parts of the workflow should be deliberately separated, not accidentally mixed. Most skills that feel "fine" are underspecified, over-verbose, or missing infrastructure they'd benefit from.
 
@@ -130,7 +132,9 @@ Writing a good skill is harder than it looks. The description has to route corre
 
 `improve-skill` asks the complementary question: not "is this skill structurally correct?" but "does it accomplish what users need?" It models user intent, walks through the skill as Claude with a real request to find stuck points and dead ends, verifies factual claims against current documentation, scans for missing adjacent capabilities, and reviews UX flow for friction. Findings are grouped by outcome type — new features, accuracy fixes, UX improvements, efficiency gains — and applied with user selection.
 
-All three skills share a `references/` library: a skill anatomy gold standard, a complete frontmatter options catalog with tool selection framework, and a script patterns reference with five signal patterns for recognizing CLI candidates.
+`create-cli` designs a complete CLI surface before implementation — flags, subcommands, output format, error schema, and configuration — through a structured interview. Defaults to an agent-aware baseline (TTY auto-detection, structured error objects with executable hints, NDJSON for list commands) that serves both agent callers and humans at a terminal without extra flags.
+
+All four skills share a `references/` library: a skill anatomy gold standard, a complete frontmatter options catalog with tool selection framework, a script patterns reference with five signal patterns for recognizing CLI candidates, and agent-aware CLI design guidelines.
 
 ```
 /plugin install claude-skills@claudest
@@ -140,7 +144,7 @@ All three skills share a `references/` library: a skill anatomy gold standard, a
 
 <a id="claude-thinking"></a>
 
-### 🤔 claude-thinking &nbsp; ![v0.1.3](https://img.shields.io/badge/v0.1.3-blue?style=flat-square)
+### 🤔 claude-thinking &nbsp; ![v0.1.4](https://img.shields.io/badge/v0.1.4-blue?style=flat-square)
 
 Structured thinking tools for Claude Code. Skills that use dialogue to help you clarify, stress-test, and articulate ideas, then produce a written artifact.
 
@@ -156,7 +160,7 @@ Some of the best thinking happens in conversation, but unstructured conversation
 
 <a id="claude-content"></a>
 
-### 🎬 claude-content &nbsp; ![v0.2.2](https://img.shields.io/badge/v0.2.2-blue?style=flat-square)
+### 🎬 claude-content &nbsp; ![v0.2.3](https://img.shields.io/badge/v0.2.3-blue?style=flat-square)
 
 Content creation and processing tools for Claude Code. Six skills covering image generation and the full video/audio manipulation workflow.
 
@@ -184,7 +188,7 @@ Requires `ffmpeg` and `ffprobe`. Image generation additionally requires `GEMINI_
 
 <a id="claude-utilities"></a>
 
-### 🔧 claude-utilities &nbsp; ![v0.1.6](https://img.shields.io/badge/v0.1.6-blue?style=flat-square)
+### 🔧 claude-utilities &nbsp; ![v0.1.7](https://img.shields.io/badge/v0.1.7-blue?style=flat-square)
 
 Useful tools that don't fit in a specific plugin.
 
