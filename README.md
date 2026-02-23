@@ -1,8 +1,18 @@
-# Claudest
+<div align="center">
 
-A curated Claude Code plugin marketplace. Everything here is something I personally use, build, and iterate on across real projects. If it's in this marketplace, it works.
+<h1>Claudest</h1>
 
-## Installation
+<p>A curated Claude Code plugin marketplace. Everything here is something I personally use, build, and iterate on across real projects. If it's in this marketplace, it works.</p>
+
+![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
+![Release](https://img.shields.io/github/v/release/gupsammy/claudest?style=flat-square)
+![Stars](https://img.shields.io/github/stars/gupsammy/claudest?style=social)
+
+</div>
+
+---
+
+## ⚡ Installation
 
 Add the marketplace, then install any plugin:
 
@@ -13,7 +23,9 @@ Add the marketplace, then install any plugin:
 
 To enable auto-updates, run `/plugin`, go to the Marketplaces tab, and toggle auto-update for Claudest.
 
-## Plugins
+---
+
+## 📦 Plugins
 
 ### claude-memory
 
@@ -25,11 +37,11 @@ That's what claude-memory provides. It stores every session in a SQLite database
 
 First, automatic context injection. On every session start, a hook queries recent sessions and injects the most recent meaningful one into context. The agent already knows what you worked on last time before you say a word. This is what makes the plan-in-one-session, implement-in-the-next workflow possible.
 
-Second, on-demand search. A past-conversations skill lets the agent (or you) search conversation history by keywords, browse recent sessions, or run structured analyses like retrospectives and gap-finding. Ask "what did we decide about the API design?" and the agent searches your history.
+Second, on-demand search. A `past-conversations` skill lets the agent (or you) search conversation history by keywords, browse recent sessions, or run structured analyses like retrospectives and gap-finding. Ask "what did we decide about the API design?" and the agent searches your history.
 
 The search works because the agent constructs the queries, not you. When you ask about "the database migration," the agent extracts the right keywords, sends them to FTS5, and iterates if the first results aren't good enough. The agent compensates for the simplicity of the storage layer. No vector database, no embedding pipeline, no external dependencies. Just SQLite and Python's standard library.
 
-The plugin also includes an extract-learnings skill, a route from recall into archival memory. It reads past conversations, identifies non-obvious insights and gotchas worth preserving, and proposes placing them at the right layer in the memory hierarchy (CLAUDE.md, MEMORY.md, or topic files) with diffs and rationale. Learnings that would otherwise evaporate when context resets get distilled into persistent knowledge.
+The plugin also includes an `extract-learnings` skill, a route from recall into archival memory. It reads past conversations, identifies non-obvious insights and gotchas worth preserving, and proposes placing them at the right layer in the memory hierarchy (CLAUDE.md, MEMORY.md, or topic files) with diffs and rationale. Learnings that would otherwise evaporate when context resets get distilled into persistent knowledge.
 
 For the full story behind the architecture, I wrote about the design decisions and what I learned about how agents actually use memory: [What I Learned Building a Memory System for My Coding Agent](https://www.reddit.com/r/ClaudeCode/comments/1r1w397/comment/o5294lk/).
 
@@ -41,16 +53,21 @@ For the full story behind the architecture, I wrote about the design decisions a
 
 ### claude-utilities
 
-Useful tools that don't fit in a specific plugin.
+Useful tools that don't fit in a specific plugin. Two skills for extracting content from the web.
 
-Currently includes **web-to-markdown**, which converts any webpage to clean markdown, stripping ads, navigation, popups, and cookie banners. Uses [ezycopy](https://github.com/gupsammy/EzyCopy) under the hood.
+**web-to-markdown** converts any webpage to clean markdown, stripping ads, navigation, popups, and cookie banners. Uses [ezycopy](https://github.com/gupsammy/EzyCopy) under the hood. Triggers on "convert this page to markdown", "extract this webpage", "save this article", "grab content from URL", "scrape this page".
 
 ```bash
 # Prerequisite
 curl -sSL https://raw.githubusercontent.com/gupsammy/EzyCopy/main/install.sh | sh
 ```
 
-Triggers on "convert this page to markdown", "extract this webpage", "save this article", "grab content from URL", "scrape this page".
+**youtube-research** is a YouTube research workflow built on `yt-dlp`. Search by query, fetch a video's transcript or subtitles in any available language, download audio, scan a channel's uploads, or batch-collect transcripts across a list of videos. Designed for research tasks where you want structured data from YouTube — metadata, captions, and audio — not just a link. Triggers on "search YouTube", "get a transcript", "download subtitles", "extract audio from YouTube", "scan a channel", "summarize this video".
+
+```bash
+# Prerequisite
+pip install yt-dlp
+```
 
 ```
 /plugin install claude-utilities@claudest
@@ -78,7 +95,7 @@ Both skills share a `references/` library: a skill anatomy gold standard, a comp
 
 ### claude-coding
 
-Coding workflow skills for Claude Code. Four skills covering the commit loop and project maintenance.
+Coding workflow skills for Claude Code. Five skills covering the commit loop, project maintenance, and documentation.
 
 Every coding session involves the same decisions: what belongs in one commit vs multiple, whether you're on the right branch before pushing, what to call the PR, whether your project docs still reflect reality. These skills encode the right defaults and handle the mechanical parts so the workflow stays uninterrupted.
 
@@ -89,6 +106,8 @@ Every coding session involves the same decisions: what belongs in one commit vs 
 `clean-branches` finds merged and stale branches (no commits in 30+ days), shows them categorized as safe-to-delete vs stale, and confirms before touching anything. Protected branches (main, master, develop, release/*) are never touched. Remote deletion requires explicit confirmation.
 
 `updateclaudemd` audits and optimizes your project's CLAUDE.md. Reads the current file, explores the codebase to verify accuracy, cuts anything that doesn't change how Claude acts in the next session, and rewrites for scannability. Creates a `.bak` backup before writing.
+
+`readme-maker` generates a professional `README.md` through a structured interview. Asks about project type, depth (minimal → 50 lines, standard → structured with sections and badges, comprehensive → full documentation with API reference, FAQ, and TOC), and header style, then writes the full file in one pass with shields.io badges and styled headers.
 
 ```
 /plugin install claude-coding@claudest
@@ -110,10 +129,36 @@ Some of the best thinking happens in conversation, but unstructured conversation
 
 ---
 
-## Contributing
+### claude-content
+
+Content creation and processing tools for Claude Code. Six skills covering image generation and the full video/audio manipulation workflow.
+
+Most content tasks involve the same small set of operations repeated across projects: compress this for web, convert to a different format, make it fit Instagram, extract the audio, generate a thumbnail. The individual FFmpeg commands are tedious to remember and easy to get wrong — the right CRF for H.265, the palette generation pipeline for GIF quality, the aspect ratio math for Reels. These skills encode the correct defaults so you don't have to look them up.
+
+`image-generation` calls Google's Gemini Pro Image API for text-to-image, image-to-image editing, and multi-reference composition. Give it a description and it generates the image. Give it a source image and editing instructions and it modifies it. Give it multiple reference images and a prompt and it composes them. Requires `GEMINI_API_KEY` and `uv`.
+
+`video-compress` profiles the source first, then applies quality-based (CRF) encoding to hit a visual quality target or size-based (2-pass) encoding to hit a file size target — whichever the workflow needs.
+
+`video-convert` is the general-purpose manipulation skill: format conversion, trim, speed adjustment, slow motion, timelapse, frame extraction, resize, rotate, flip, remux. Multi-operation requests are chained into a single ffmpeg invocation — no intermediate files, no quality loss from repeated encode passes.
+
+`video-gif` uses the mandatory 2-pass palette workflow: `palettegen` builds an optimal 256-color palette from the clip's actual colors, then `paletteuse` renders with it. Single-pass GIF encoding produces banding and color artifacts. This doesn't.
+
+`video-social` prepares video for platform-specific upload requirements: 9:16 for Shorts/Reels/TikTok, 1:1 for square posts, platform bitrate targets, and correct container settings. Presets for Instagram, YouTube Shorts, TikTok, Twitter, Facebook, and LinkedIn.
+
+`audio-extract` rips the audio track from any video with format selection built in: FLAC for lossless archival, MP3 VBR for transparent compression, AAC for maximum compatibility.
+
+Requires `ffmpeg` and `ffprobe`. Image generation additionally requires `GEMINI_API_KEY` and `uv`.
+
+```
+/plugin install claude-content@claudest
+```
+
+---
+
+## 🤝 Contributing
 
 This is a curated set of tools I personally maintain, not an open-submission marketplace. If you find bugs or have suggestions, open an issue. If you want to run your own marketplace with your own battle-tested tools, fork this and make it yours.
 
-## License
+## 📄 License
 
 MIT

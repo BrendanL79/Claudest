@@ -14,8 +14,14 @@
     {
       "name": "claude-utilities",
       "description": "A collection of useful utilities, tools, and skills for Claude Code",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "source": "./plugins/claude-utilities"
+    },
+    {
+      "name": "claude-research",
+      "description": "Cross-platform research skills: deep multi-source research across Reddit, X, YouTube, and the web, plus a standalone YouTube research toolkit",
+      "version": "0.1.0",
+      "source": "./plugins/claude-research"
     },
     {
       "name": "claude-skills",
@@ -26,13 +32,13 @@
     {
       "name": "claude-coding",
       "description": "Coding workflow skills: intelligent commits, push & PR, branch cleanup, CLAUDE.md maintenance, and README generation",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "source": "./plugins/claude-coding"
     },
     {
       "name": "claude-thinking",
       "description": "Structured thinking tools: interviews, decision frameworks, and reasoning aids",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "source": "./plugins/claude-thinking"
     },
     {

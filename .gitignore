@@ -5,3 +5,4 @@ SECURITY_AUDIT.md
 agents/
 claude-code-analytics.html
 plugins/*/docs/
+.obsidian/
