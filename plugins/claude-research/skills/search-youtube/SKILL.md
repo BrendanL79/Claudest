@@ -105,21 +105,80 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/search-youtube/scripts/yt_research.py trans
 ## Research Mode
 
 Activate when the user asks to "research", "investigate", or "find out about" a topic
-using YouTube as a source. This is an autonomous multi-step pipeline:
+using YouTube as a source. This is an adaptive multi-round discovery pipeline designed
+for niche and emerging topics where popular videos often under-serve.
 
-1. Search for the topic with broad terms, request 15-20 results
-2. Evaluate results by reading titles, channels, view counts, and durations. Select 3-5
-   videos using these criteria in priority order: depth over breadth (a 30-minute deep-dive
-   from a domain expert outweighs five 3-minute overviews), channel authority (subject-matter
-   experts and recognized educators over generic aggregators), recency (prefer recent content
-   unless the topic is stable), and view count as a tiebreaker (higher views signal broader
-   validation, not necessarily quality) %% claude: this doesn't give good results always. 30 minute long videos, often are not experts, often for new technologies like open claw channel authority and viewer count often is average knowledge, vs smaller accounts often do better %%
-3. Extract metadata for selected videos to confirm relevance (check descriptions, chapters)
-4. Download transcripts for the final selection
-5. Read each transcript and synthesize findings into a report
+### Round 1: Divergent Search
 
-Use `WebSearch` or brave-cli to cross-reference claims or fill gaps when YouTube sources disagree or leave questions unanswered. Use `Task` to spawn parallel transcript downloads when
-processing more than 3 videos.
+Generate 4-6 query variants that cover different angles of the topic:
+- Exact tool/concept name (e.g., `"openclaw"`)
+- Tool + ecosystem context (e.g., `"openclaw claude code"`)
+- Problem the tool solves (e.g., `"claude code documentation framework"`)
+- Workflow/demo framing (e.g., `"openclaw walkthrough demo"`)
+- Alternative names, abbreviations, or common misspellings if applicable
+
+Spawn one `Task` agent per query variant simultaneously, each running:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/search-youtube/scripts/yt_research.py search "<query-variant>" --count 15
+```
+
+Collect all results and deduplicate by video ID. Aim for 30-50 unique candidates across
+all threads.
+
+### Round 1 Evaluation: Niche-First Heuristics
+
+For niche, emerging, or edge-of-tech topics, these signals predict quality:
+
+**Positive signals (use these):**
+- Title specifically names the tool or concept (not "top AI tools 2025")
+- Small channel (< 50K subscribers) — for new tech, practitioners publish before
+  educators discover the topic
+- Technical, specific description (mentions code, config, architecture, or commands)
+- Structured content: chapters, timestamps, or detailed description
+- Recent upload date
+
+**Negative signals (treat as red flags on niche topics):**
+- View count > 100K — on a narrow topic this usually means beginner-level or clickbait
+- "Tutorial for beginners" / "complete guide" in the title for brand-new tools
+- Large generalist channel covering many unrelated topics
+
+Select 6-10 candidates from the combined pool. Note which channels produced the
+strongest results — those are targets for Round 2.
+
+### Round 2: Channel Discovery and Refinement
+
+For each channel that surfaced a strong Round 1 result, scan its recent videos:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/search-youtube/scripts/yt_research.py channel "<channel-url>" --limit 20
+```
+
+Also run 1-2 refined search queries using specific terminology that appeared in strong
+Round 1 titles or descriptions. Add any new candidates to the pool.
+
+**Quality gate:** If Round 1 candidates are weak (generic titles, all high-view generalist
+content, nothing specifically about the topic), surface this to the user and run another
+search round with reformulated queries before proceeding to transcripts.
+
+### Round 3: Confirm and Transcribe
+
+From the enriched candidate pool, select 4-7 videos using the Round 1 criteria. Extract
+metadata to confirm relevance before committing to downloads:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/search-youtube/scripts/yt_research.py metadata "<url>"
+```
+
+Download transcripts in parallel — always spawn one `Task` agent per video, even for 2:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/search-youtube/scripts/yt_research.py transcript "<url>" --save -t <topic>
+```
+
+Read each transcript and synthesize findings into a report. Use `WebSearch` or brave-cli
+to cross-reference claims or fill gaps when YouTube sources disagree or leave questions
+unanswered.
 
 ### Research Report Format
 
