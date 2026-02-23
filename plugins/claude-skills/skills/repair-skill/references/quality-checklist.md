@@ -48,7 +48,7 @@ Run after all improvements are applied:
 - [ ] Description uses third-person ("This skill should be used when...")
 - [ ] 3–5+ varied trigger phrases; includes naive user phrasing
 - [ ] Uses `>` scalar, not `|`
-- [ ] `argument-hint` present if skill reads `$ARGUMENTS`/`$1`
+- [ ] `argument-hint` present if skill reads `$ARGUMENTS`/`$1`; value quoted if it contains `[...]`
 
 **Content Quality:**
 - [ ] Body uses imperative voice; no first-person, no second-person

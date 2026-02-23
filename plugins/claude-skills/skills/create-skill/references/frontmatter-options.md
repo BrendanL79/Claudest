@@ -35,7 +35,7 @@ hooks:
 # Behavior modifiers
 user-invocable: true                # Show in /command menu (default true)
 disable-model-invocation: true      # Prevent programmatic invocation (commands only)
-argument-hint: [arg1] [arg2]        # Document expected arguments
+argument-hint: "[arg1] [arg2]"      # Document expected arguments; quote if value contains [...]
 ---
 ```
 

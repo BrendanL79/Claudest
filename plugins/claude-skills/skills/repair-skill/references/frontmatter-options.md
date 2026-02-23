@@ -141,7 +141,11 @@ Forces manual invocation only. Default: `false`.
 ### `argument-hint` (string)
 
 Shown in autocomplete when the user types the command. Documents expected argument
-syntax. Examples: `[issue-number]`, `<path-to-skill>`, `[skill|command] [name]`.
+syntax. Examples: `"[issue-number]"`, `<path-to-skill>`, `"[skill|command] [name]"`.
+
+**Quoting rule:** values that contain `[...]` must be quoted (`"[arg]"`), because YAML
+treats unquoted `[` as the start of a flow sequence. Values using only `<...>` do not
+need quoting.
 
 Audit rule: any skill that reads `$ARGUMENTS` or `$1`/`$2` should have `argument-hint`
 set so users know what to pass.
