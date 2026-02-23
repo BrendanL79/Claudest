@@ -26,13 +26,13 @@
     {
       "name": "claude-skills",
       "description": "Skill authoring tools: generate, audit, and improve Claude Code skills and commands",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "source": "./plugins/claude-skills"
     },
     {
       "name": "claude-coding",
-      "description": "Coding workflow skills: intelligent commits, push & PR, branch cleanup, CLAUDE.md maintenance, README generation, and changelog creation",
-      "version": "0.1.8",
+      "description": "Coding workflow skills: intelligent commits, push & PR, branch cleanup, CLAUDE.md maintenance, README generation, changelog creation, and README updating",
+      "version": "0.1.9",
       "source": "./plugins/claude-coding"
     },
     {
