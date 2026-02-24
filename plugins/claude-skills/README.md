@@ -1,12 +1,12 @@
 # claude-skills
 
-Skill authoring tools for Claude Code. Four complementary skills: one generates skills from scratch, one audits for structural correctness, one improves for effectiveness, and one designs CLI interfaces for the scripts those skills produce.
+Skill and agent authoring tools for Claude Code. Five complementary skills: one generates skills from scratch, one generates agents, one audits for structural correctness, one improves for effectiveness, and one designs CLI interfaces for the scripts those skills produce. A bundled `skill-lint` agent runs structural linting automatically after skill creation or improvement.
 
 ## Why
 
 Writing a good Claude Code skill is harder than it looks. The description has to be precise enough to route reliably while being dense enough to not waste tokens on every session it doesn't trigger. The body has to be tight enough for consistent outcomes but not so prescriptive that it suppresses the model's ability to generalize. Workflow steps that should be deterministic scripts get left as inline prose that the model re-generates differently on each run. And most skills that "work" are missing infrastructure — reference files for domain-specific data, scripts for fragile operations, examples for outputs users will adapt — that would make them substantially better.
 
-These four skills exist to close that gap: `create-skill` generates skills with these properties built in, `repair-skill` diagnoses structural violations, `improve-skill` tests effectiveness against user goals, and `create-cli` designs the CLI interfaces for the scripts that deterministic workflow steps get extracted into.
+These skills exist to close that gap: `create-skill` generates skills with these properties built in, `create-agent` generates Claude Code agents with proper description format and system prompt structure, `repair-skill` diagnoses structural violations, `improve-skill` tests effectiveness against user goals, and `create-cli` designs the CLI interfaces for the scripts that deterministic workflow steps get extracted into.
 
 ## Installation
 
@@ -65,9 +65,29 @@ Based on a design by [steipete](https://github.com/steipete); this is a modified
 
 The skill is built around a key distinction: a CLI consumed by an agent has different requirements than one designed only for human terminal use. Agents are always non-TTY, cannot tolerate ambiguous exit codes, parse stderr as structured data, and need compound output that reduces follow-up tool calls. The skill applies that lens throughout.
 
-Phase 1 loads `cli-guidelines.md` as the default rubric. Phase 2 clarifies command name, primary consumer (agent, human, scripted automation, or mixed), input sources, output contract, interactivity needs, and config model — using best-guess defaults if the user is unsure or provides an existing spec. Phase 3 applies a unified set of agent-first conventions: TTY auto-detection (pretty output when stdout is a TTY; structured JSON when piped or non-TTY), NDJSON for list commands to enable streaming, structured error objects on stderr with an `error` code and an executable `hint` field, consistent flag naming across subcommands so agent callers can learn patterns once, and compound output on mutating commands to avoid follow-up calls. For deeper context on these conventions, the skill can load `references/agent-aware-design.md`. Phase 4 delivers either a full CLI spec (new designs) or a gap report (audits of existing CLIs), including a command tree, args/flags table, output rules, error and exit code map, safety rules, config/env precedence, and worked examples.
+Phase 1 loads `cli-guidelines.md` as the default rubric and `language-selection.md` for implementation language guidance. Phase 2 clarifies command name, primary consumer (agent, human, scripted automation, or mixed), input sources, output contract, interactivity needs, config model, and implementation language — using best-guess defaults if the user is unsure or provides an existing spec. Language selection covers Go, Python, Node.js, Rust, and shell, with recommendations based on distribution requirements, runtime constraints, and agent-use patterns. Phase 3 applies a unified set of agent-first conventions: TTY auto-detection (pretty output when stdout is a TTY; structured JSON when piped or non-TTY), NDJSON for list commands to enable streaming, structured error objects on stderr with an `error` code and an executable `hint` field, consistent flag naming across subcommands so agent callers can learn patterns once, and compound output on mutating commands to avoid follow-up calls. For deeper context on these conventions, the skill can load `references/agent-aware-design.md`. Phase 4 delivers either a full CLI spec (new designs) or a gap report (audits of existing CLIs), including a command tree, args/flags table, output rules, error and exit code map, safety rules, config/env precedence, and worked examples.
 
 `create-cli` is also called internally by `create-skill` and `repair-skill` when they identify a workflow step with a rigid enough interface to warrant a proper CLI tool rather than an inline code block.
+
+### create-agent
+
+Generate a well-structured Claude Code agent from requirements. Triggers on phrases like "create an agent", "make an agent", "write an agent", "build a subagent", "add an agent to a plugin", "design an autonomous agent", "generate an agent file", "write a system prompt for an agent", or "what frontmatter does an agent need".
+
+Agents and skills are distinct constructs with different authoring requirements. An agent runs in an isolated context window, is written in second-person ("You are..."), uses `<example>` XML blocks in its description for routing, and is spawned via the Task tool. A skill injects inline into the current conversation, uses imperative instructions for Claude to follow, and routes via trigger phrase matching. `create-agent` enforces this distinction throughout.
+
+The skill fetches current agent documentation before generating, then works through a structured generation process. Phase 1 gathers requirements: domain, expert persona, trigger conditions, proactive vs reactive firing behavior, tool access, and context isolation needs. Phase 2 generates the agent — it applies naming validation rules (3–50 characters, lowercase alphanumeric with hyphens, no generic names like `helper` or `assistant`), writes frontmatter with minimum necessary tools on the least-privilege principle, constructs a description with 2–4 `<example>` blocks covering synonym trigger coverage, and writes the system prompt body in second person with persona, process steps, output format, and edge cases. A script opportunity scan applies the five signal patterns to every step in the system prompt. Phase 3 delivers the agent to the correct path (`~/.claude/agents/`, `.claude/agents/`, or `<plugin-root>/agents/`), explains every design decision, and scores the result across five quality dimensions (Clarity, Trigger Precision, Efficiency, Completeness, Safety) targeting 9.0/10.0.
+
+Two helper scripts are included: `validate_agent.py` checks naming rules and required frontmatter fields, returning a structured JSON error list with severity levels; `init_agent.py` scaffolds a new agent file with placeholders at the target path.
+
+## Agents
+
+### skill-lint
+
+A bundled agent that runs structural linting after skill creation or improvement. Fires proactively when `create-skill` or `improve-skill` finishes generating output, and also on explicit user requests like "lint this skill".
+
+`skill-lint` loads the two repair-skill audit reference files and runs all seven structural dimensions (D1–D7) against the skill. It auto-applies all critical and major fixes without asking, then presents minor findings for user decision. This separates structural correctness (skill-lint's domain) from effectiveness analysis (improve-skill's domain) — the two concerns that most often get conflated in manual skill review.
+
+The agent is scoped to `Read`, `Glob`, `Grep`, `Edit`, `Write`, and `AskUserQuestion` only. It explicitly declines to lint agent files (AGENT.md), which have a different structural contract.
 
 ## Reference Library
 
@@ -78,6 +98,10 @@ The skills share a `references/` library that they load during their workflows.
 `frontmatter-options.md` is the complete catalog of valid frontmatter fields, all valid values per field, the full tool list with blast-radius notes, and a tool selection framework with tier table and rationale. Loaded before any frontmatter or execution modifier audit.
 
 `script-patterns.md` covers the five signal patterns for recognizing script and CLI candidates, CLI design conventions for skill context (argument structure, output format, exit codes, help text), five script archetypes (init/validate/transform/package/query) with canonical argument patterns, the Python script template, wiring rules for referencing scripts from SKILL.md, and the delegation pattern to `create-cli` for non-trivial interface design.
+
+`agent-frontmatter.md` (in `create-agent/references/`) is the complete catalog of valid agent frontmatter fields — tools, disallowedTools, model, color, permissionMode, isolation, background, maxTurns, skills, memory — with color semantics and tool selection guidance specific to agents. Loaded by `create-agent` before generating frontmatter.
+
+`language-selection.md` (in `create-cli/references/`) covers implementation language selection for CLI tools: Go, Python, Node.js, Rust, and shell, with recommendations based on distribution model, runtime dependency tolerance, parsing library options, and agent-use suitability. Loaded by `create-cli` during Phase 2 clarification.
 
 ## Architecture Note
 

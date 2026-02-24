@@ -20,8 +20,8 @@ Triggers on "research a topic", "run-research", "what's happening with X", "find
 **Prerequisites:**
 
 ```bash
-# Reddit (optional but recommended)
-pip install reddit-cli    # or from ~/repos/myrepos/reddit-cli
+# Reddit (optional but recommended — one-command installer)
+curl -fsSL https://raw.githubusercontent.com/gupsammy/reddit-cli/main/install.sh | bash
 
 # X / Twitter (optional)
 brew install bird         # or follow https://github.com/steipete/bird
@@ -29,15 +29,17 @@ brew install bird         # or follow https://github.com/steipete/bird
 # YouTube (optional)
 pip install yt-dlp
 
-# Web (optional — falls back to Claude's native WebSearch)
-# brave-cli from ~/repos/myrepos/brave-cli
+# Web (optional — one-command installer; falls back to Claude's native WebSearch)
+curl -fsSL https://raw.githubusercontent.com/gupsammy/brave-cli/main/install.sh | sh
 ```
+
+If reddit-cli or brave-cli is not installed when you run a research task, the skill will detect this automatically and offer to install it for you before proceeding.
 
 ### search-youtube
 
-YouTube research toolkit built on `yt-dlp`. Operates in two modes.
+YouTube research toolkit built on `yt-dlp` (`yt_research.py` v0.2.0). Operates in two modes.
 
-Toolkit mode handles individual operations: search, transcript, metadata, audio extraction, channel scanning, and batch processing.
+Toolkit mode handles individual operations: search, transcript, metadata, audio extraction, channel scanning, and batch processing. The v0.2.0 CLI is agent-aware — all subcommands produce clean, parseable output with well-defined exit codes, making it safe to invoke from Task agents without shell quoting issues or ambiguous failure modes.
 
 Research mode runs an adaptive multi-round discovery pipeline designed for niche and emerging topics where popular videos often under-serve. Round 1 spawns parallel Task agents across 4-6 query variants and applies niche-first heuristics during evaluation — preferring small technical channels and penalizing high-view generalist content on narrow topics. Round 2 drills into the strongest channels and refines queries using terminology from Round 1 hits. Round 3 confirms candidates via metadata, downloads transcripts in parallel Task agents, and synthesizes a structured report with cross-referenced findings, source attribution, and gaps in coverage.
 

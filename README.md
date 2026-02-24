@@ -30,9 +30,9 @@ To enable auto-updates, run `/plugin`, go to the Marketplaces tab, and toggle au
 | Plugin | Version | Skills |
 |--------|---------|--------|
 | [claude-memory](#claude-memory) | `0.7.7` | recall-conversations · extract-learnings |
-| [claude-research](#claude-research) | `0.1.3` | run-research · search-youtube |
+| [claude-research](#claude-research) | `0.1.4` | run-research · search-youtube |
 | [claude-coding](#claude-coding) | `0.1.10` | commit · push-pr · clean-branches · update-claudemd · make-readme · make-changelog · update-readme |
-| [claude-skills](#claude-skills) | `0.1.6` | create-skill · repair-skill · improve-skill · create-cli |
+| [claude-skills](#claude-skills) | `0.1.9` | create-skill · repair-skill · improve-skill · create-cli · create-agent |
 | [claude-thinking](#claude-thinking) | `0.1.5` | brainstorm |
 | [claude-content](#claude-content) | `0.2.3` | generate-image · compress-video · convert-video · make-gif · share-social · extract-audio |
 | [claude-utilities](#claude-utilities) | `0.1.7` | convert-to-markdown |
@@ -66,7 +66,7 @@ For the full story behind the architecture: [What I Learned Building a Memory Sy
 
 <a id="claude-research"></a>
 
-### 🔍 claude-research &nbsp; ![v0.1.3](https://img.shields.io/badge/v0.1.3-blue?style=flat-square)
+### 🔍 claude-research &nbsp; ![v0.1.4](https://img.shields.io/badge/v0.1.4-blue?style=flat-square)
 
 Cross-platform research skills for Claude Code. Two complementary tools: a multi-source deep research pipeline and a standalone YouTube research toolkit.
 
@@ -81,7 +81,7 @@ Sources are detected at runtime. If reddit-cli, bird, or brave-cli aren't instal
 pip install yt-dlp           # YouTube (used by both skills)
 pip install reddit-cli       # Reddit
 brew install bird            # X / Twitter
-# brave-cli — see https://github.com/gupsammy/brave-cli
+# brave-cli — one-command installer included in run-research skill output
 # Web search falls back to Claude's native WebSearch if brave-cli is missing
 ```
 
@@ -121,9 +121,9 @@ Every coding session involves the same decisions: what belongs in one commit vs 
 
 <a id="claude-skills"></a>
 
-### ✍️ claude-skills &nbsp; ![v0.1.6](https://img.shields.io/badge/v0.1.6-blue?style=flat-square)
+### ✍️ claude-skills &nbsp; ![v0.1.9](https://img.shields.io/badge/v0.1.9-blue?style=flat-square)
 
-Skill authoring tools for Claude Code. Four complementary skills that cover the full lifecycle: generate, audit, improve, and CLI design.
+Skill authoring tools for Claude Code. Five complementary skills that cover the full lifecycle: generate skills, generate agents, audit, improve, and CLI design.
 
 Writing a good skill is harder than it looks. The description has to route correctly without being verbose — it's loaded on every session regardless of whether the skill fires, so every token costs something. The body has to be precise enough to produce consistent outcomes but loose enough that the model isn't re-generating boilerplate that should be a script. The agentic and deterministic parts of the workflow should be deliberately separated, not accidentally mixed. Most skills that feel "fine" are underspecified, over-verbose, or missing infrastructure they'd benefit from.
 
@@ -133,9 +133,11 @@ Writing a good skill is harder than it looks. The description has to route corre
 
 `improve-skill` asks the complementary question: not "is this skill structurally correct?" but "does it accomplish what users need?" It models user intent, walks through the skill as Claude with a real request to find stuck points and dead ends, verifies factual claims against current documentation, scans for missing adjacent capabilities, and reviews UX flow for friction. Findings are grouped by outcome type — new features, accuracy fixes, UX improvements, efficiency gains — and applied with user selection.
 
+`create-agent` generates well-structured Claude Code agents — markdown files with YAML frontmatter that delegate complex multi-step work to autonomous subprocesses with isolated context windows. It fetches the latest agent documentation before generating, then interviews you about requirements: expert persona, tool access (allowed/disallowed), isolation level, model, and triggering conditions. It knows the critical distinction between agents (isolated context, second-person system prompt, spawned via Task tool) and skills (inline injection, imperative instructions, description routing) and designs the right artifact for each use case.
+
 `create-cli` designs a complete CLI surface before implementation — flags, subcommands, output format, error schema, and configuration — through a structured interview. Defaults to an agent-aware baseline (TTY auto-detection, structured error objects with executable hints, NDJSON for list commands) that serves both agent callers and humans at a terminal without extra flags.
 
-All four skills share a `references/` library: a skill anatomy gold standard, a complete frontmatter options catalog with tool selection framework, a script patterns reference with five signal patterns for recognizing CLI candidates, and agent-aware CLI design guidelines.
+All five skills share a `references/` library: a skill anatomy gold standard, a complete frontmatter options catalog with tool selection framework, a script patterns reference with five signal patterns for recognizing CLI candidates, and agent-aware CLI design guidelines.
 
 ```
 /plugin install claude-skills@claudest

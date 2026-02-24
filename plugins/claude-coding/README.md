@@ -31,7 +31,7 @@ Triggers on: "push this", "push my changes", "create a PR", "open a pull request
 
 ### clean-branches
 
-Safely remove merged and stale git branches with confirmation. Finds branches already merged into main and branches with no commits in 30+ days, shows them categorized, and asks before deleting anything. Never touches protected branches. Remote deletion requires explicit confirmation.
+Safely remove merged and stale git branches with confirmation. Finds branches already merged into main and branches with no commits in 30+ days, shows them categorized, and asks before deleting anything. Never touches protected branches. Remote deletion requires explicit confirmation. Pass an optional branch pattern (e.g. `feature/*`) to limit candidates to matching branches only.
 
 Triggers on: "clean up branches", "delete merged branches", "prune stale branches", "git branch cleanup", "remove old branches".
 
