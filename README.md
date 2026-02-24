@@ -31,9 +31,9 @@ To enable auto-updates, run `/plugin`, go to the Marketplaces tab, and toggle au
 |--------|---------|--------|
 | [claude-memory](#claude-memory) | `0.7.7` | recall-conversations · extract-learnings |
 | [claude-research](#claude-research) | `0.1.3` | run-research · search-youtube |
-| [claude-coding](#claude-coding) | `0.1.9` | commit · push-pr · clean-branches · update-claudemd · make-readme · make-changelog · update-readme |
-| [claude-skills](#claude-skills) | `0.1.5` | create-skill · repair-skill · improve-skill · create-cli |
-| [claude-thinking](#claude-thinking) | `0.1.4` | brainstorm |
+| [claude-coding](#claude-coding) | `0.1.10` | commit · push-pr · clean-branches · update-claudemd · make-readme · make-changelog · update-readme |
+| [claude-skills](#claude-skills) | `0.1.6` | create-skill · repair-skill · improve-skill · create-cli |
+| [claude-thinking](#claude-thinking) | `0.1.5` | brainstorm |
 | [claude-content](#claude-content) | `0.2.3` | generate-image · compress-video · convert-video · make-gif · share-social · extract-audio |
 | [claude-utilities](#claude-utilities) | `0.1.7` | convert-to-markdown |
 | [claude-claw](#claude-claw) | `0.1.0` | claw-advisor |
@@ -93,7 +93,7 @@ brew install bird            # X / Twitter
 
 <a id="claude-coding"></a>
 
-### 💻 claude-coding &nbsp; ![v0.1.9](https://img.shields.io/badge/v0.1.9-blue?style=flat-square)
+### 💻 claude-coding &nbsp; ![v0.1.10](https://img.shields.io/badge/v0.1.10-blue?style=flat-square)
 
 Coding workflow skills for Claude Code. Seven skills covering the commit loop, project maintenance, and documentation.
 
@@ -121,7 +121,7 @@ Every coding session involves the same decisions: what belongs in one commit vs 
 
 <a id="claude-skills"></a>
 
-### ✍️ claude-skills &nbsp; ![v0.1.5](https://img.shields.io/badge/v0.1.5-blue?style=flat-square)
+### ✍️ claude-skills &nbsp; ![v0.1.6](https://img.shields.io/badge/v0.1.6-blue?style=flat-square)
 
 Skill authoring tools for Claude Code. Four complementary skills that cover the full lifecycle: generate, audit, improve, and CLI design.
 
@@ -145,7 +145,7 @@ All four skills share a `references/` library: a skill anatomy gold standard, a 
 
 <a id="claude-thinking"></a>
 
-### 🤔 claude-thinking &nbsp; ![v0.1.4](https://img.shields.io/badge/v0.1.4-blue?style=flat-square)
+### 🤔 claude-thinking &nbsp; ![v0.1.5](https://img.shields.io/badge/v0.1.5-blue?style=flat-square)
 
 Structured thinking tools for Claude Code. Skills that use dialogue to help you clarify, stress-test, and articulate ideas, then produce a written artifact.
 

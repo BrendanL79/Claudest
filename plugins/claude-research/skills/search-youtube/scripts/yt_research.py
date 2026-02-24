@@ -10,7 +10,7 @@ Usage:
   yt_research.py channel <url|@handle> [flags]
 
 Examples:
-  yt_research.py search "python async tutorial" --count 5
+  yt_research.py search "python async tutorial" --limit 5
   yt_research.py transcript "https://youtube.com/watch?v=abc" --save -t ml
   yt_research.py channel "@ThePrimeagen" --limit 30
 """
@@ -27,8 +27,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 DEFAULT_DIR = Path.home() / "youtube-research"
+
+# Resolved in main(); used by output_result and cmd_* handlers
+_IS_TTY: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -53,13 +56,48 @@ def log(msg: str, quiet: bool = False) -> None:
         print(msg, file=sys.stderr)
 
 
+# ---------------------------------------------------------------------------
+# Error handling
+# ---------------------------------------------------------------------------
+
+class ResearchError(Exception):
+    """Raised by handlers; carries an exit code, machine-readable code, and hint."""
+
+    def __init__(
+        self,
+        message: str,
+        code: int = 1,
+        error_code: str = "error",
+        hint: str | None = None,
+    ):
+        super().__init__(message)
+        self.code = code
+        self.error_code = error_code
+        self.hint = hint
+
+
+def emit_error(exc: ResearchError) -> None:
+    """Write error to stderr: JSON object when piped, plain text when TTY."""
+    if sys.stderr.isatty():
+        print(f"Error: {exc}", file=sys.stderr)
+    else:
+        obj: dict = {"error": exc.error_code, "message": str(exc)}
+        if exc.hint:
+            obj["hint"] = exc.hint
+        print(json.dumps(obj), file=sys.stderr)
+
+
 def find_ytdlp() -> str:
-    """Return path to yt-dlp binary or exit 2."""
+    """Return path to yt-dlp binary or raise ResearchError."""
     path = shutil.which("yt-dlp")
     if path:
         return path
-    log("Error: yt-dlp not found. Install with: pip install yt-dlp")
-    sys.exit(2)
+    raise ResearchError(
+        "yt-dlp not found. Install with: pip install yt-dlp",
+        code=2,
+        error_code="dependency_missing",
+        hint="pip install yt-dlp",
+    )
 
 
 def run_ytdlp(
@@ -67,21 +105,37 @@ def run_ytdlp(
     cookies: str | None = None,
     quiet: bool = False,
     timeout: int = 300,
+    verbose: bool = False,
 ) -> subprocess.CompletedProcess:
     """Invoke yt-dlp and return the CompletedProcess."""
     cmd = [find_ytdlp()] + args
     if cookies:
         cmd.extend(["--cookies-from-browser", cookies])
-    if quiet:
+    if quiet and not verbose:
         cmd.extend(["--quiet", "--no-warnings"])
+    if verbose:
+        print(f"[yt-dlp] {' '.join(cmd)}", file=sys.stderr)
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        # When verbose, don't capture output so yt-dlp's own output is visible
+        return subprocess.run(
+            cmd,
+            capture_output=not verbose,
+            text=True,
+            timeout=timeout,
+        )
     except subprocess.TimeoutExpired:
-        log(f"Error: yt-dlp timed out after {timeout}s")
-        sys.exit(3)
+        raise ResearchError(
+            f"yt-dlp timed out after {timeout}s",
+            code=3,
+            error_code="timeout",
+        )
     except FileNotFoundError:
-        log("Error: yt-dlp not found")
-        sys.exit(2)
+        raise ResearchError(
+            "yt-dlp not found",
+            code=2,
+            error_code="dependency_missing",
+            hint="pip install yt-dlp",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -121,10 +175,14 @@ def entries_to_text(entries: list) -> str:
     return "\n".join(lines)
 
 
-def output_result(data, fmt: str) -> None:
+def output_result(data, fmt: str, ndjson: bool = False) -> None:
     """Print data in the requested format."""
     if fmt == "json":
-        print(json.dumps(data, indent=2, ensure_ascii=False))
+        if ndjson and isinstance(data, list):
+            for item in data:
+                print(json.dumps(item, ensure_ascii=False))
+        else:
+            print(json.dumps(data, indent=2, ensure_ascii=False))
     elif isinstance(data, list):
         print(entries_to_text(data))
     elif isinstance(data, dict):
@@ -235,17 +293,12 @@ def _to_srt(lines: list) -> str:
 # Subcommand: search
 # ---------------------------------------------------------------------------
 
-class ResearchError(Exception):
-    """Raised by handlers; carries an exit code."""
-
-    def __init__(self, message: str, code: int = 3):
-        super().__init__(message)
-        self.code = code
-
-
 def cmd_search(args, g):
     """Search YouTube for videos matching a query."""
     query = args.query
+
+    if args.count > 50:
+        log(f"Warning: --limit capped at 50 (requested {args.count})", g.quiet)
     count = min(args.count, 50)
 
     has_filters = any(
@@ -263,37 +316,69 @@ def cmd_search(args, g):
         ["--flat-playlist", "--dump-single-json", f"ytsearch{fetch_count}:{query}"],
         cookies=g.cookies,
         quiet=True,
+        timeout=g._timeout,
+        verbose=getattr(g, "verbose", False),
     )
 
     if result.returncode != 0:
-        raise ResearchError(f"yt-dlp search failed: {result.stderr.strip()}")
+        raise ResearchError(
+            f"yt-dlp search failed: {result.stderr.strip()}",
+            code=1,
+            error_code="ytdlp_error",
+        )
 
     try:
         data = json.loads(result.stdout)
     except json.JSONDecodeError:
-        raise ResearchError("Failed to parse yt-dlp output")
+        raise ResearchError(
+            "Failed to parse yt-dlp output",
+            code=1,
+            error_code="parse_error",
+        )
 
-    entries = [format_entry(e) for e in data.get("entries", [])]
+    raw_entries = [format_entry(e) for e in data.get("entries", [])]
+
+    if getattr(g, "verbose", False):
+        log(f"[verbose] Raw entries from yt-dlp: {len(raw_entries)}", g.quiet)
+
+    entries = raw_entries
 
     # Client-side filtering
     if args.min_duration:
         entries = [e for e in entries if (e.get("duration") or 0) >= args.min_duration]
     if args.max_duration:
         entries = [e for e in entries if (e.get("duration") or 0) <= args.max_duration]
-    if args.after:
-        entries = [e for e in entries if (e.get("upload_date") or "") >= args.after]
-    if args.before:
-        entries = [e for e in entries if (e.get("upload_date") or "") <= args.before]
+
+    # Date filtering: yt-dlp flat-playlist search results often return upload_date=None.
+    # Gracefully degrade — warn and skip the filter rather than silently returning nothing.
+    if args.after or args.before:
+        dated = [e for e in entries if e.get("upload_date")]
+        if not dated:
+            log(
+                "Warning: yt-dlp search results have no upload_date metadata; "
+                "--after/--before filters were skipped. "
+                "Use --metadata on individual URLs to fetch full dates.",
+                g.quiet,
+            )
+        else:
+            if args.after:
+                entries = [e for e in entries if (e.get("upload_date") or "") >= args.after]
+            if args.before:
+                entries = [e for e in entries if (e.get("upload_date") or "") <= args.before]
+
     if args.min_views:
         entries = [e for e in entries if (e.get("view_count") or 0) >= args.min_views]
 
     entries = entries[:count]
 
     if not entries:
-        raise ResearchError("No results found matching criteria.", 4)
+        if _IS_TTY:
+            log("No results found matching criteria.", g.quiet)
+        else:
+            output_result([], g.format or "json", ndjson=getattr(g, "ndjson", False))
+        return
 
-    fmt = g.format or "json"
-    output_result(entries, fmt)
+    output_result(entries, g.format or "json", ndjson=getattr(g, "ndjson", False))
 
 
 # ---------------------------------------------------------------------------
@@ -316,20 +401,34 @@ def cmd_metadata(args, g):
 
     log(f"Extracting metadata: {url}...", g.quiet)
 
-    result = run_ytdlp(ytdlp_args + [url], cookies=g.cookies, quiet=True)
+    result = run_ytdlp(
+        ytdlp_args + [url],
+        cookies=g.cookies,
+        quiet=True,
+        timeout=g._timeout,
+        verbose=getattr(g, "verbose", False),
+    )
     if result.returncode != 0:
-        raise ResearchError(f"yt-dlp failed: {result.stderr.strip()}")
+        raise ResearchError(
+            f"yt-dlp failed: {result.stderr.strip()}",
+            code=1,
+            error_code="ytdlp_error",
+        )
 
     try:
         data = json.loads(result.stdout)
     except json.JSONDecodeError:
-        raise ResearchError("Failed to parse yt-dlp output")
+        raise ResearchError(
+            "Failed to parse yt-dlp output",
+            code=1,
+            error_code="parse_error",
+        )
 
     fmt = g.format or "json"
 
     if args.playlist:
         entries = [format_entry(e) for e in data.get("entries", [])]
-        output_result(entries, fmt)
+        output_result(entries, fmt, ndjson=getattr(g, "ndjson", False))
     else:
         meta = {
             "id": data.get("id", ""),
@@ -362,7 +461,7 @@ def cmd_metadata(args, g):
             ),
             "url": data.get("webpage_url", ""),
         }
-        output_result(meta, fmt)
+        output_result(meta, fmt, ndjson=getattr(g, "ndjson", False))
 
 
 # ---------------------------------------------------------------------------
@@ -382,10 +481,18 @@ def cmd_transcript(args, g):
 
         log(f"Listing subtitles for: {url}...", g.quiet)
         result = run_ytdlp(
-            ["--dump-json", "--skip-download", url], cookies=g.cookies, quiet=True
+            ["--dump-json", "--skip-download", url],
+            cookies=g.cookies,
+            quiet=True,
+            timeout=g._timeout,
+            verbose=getattr(g, "verbose", False),
         )
         if result.returncode != 0:
-            raise ResearchError(f"yt-dlp failed: {result.stderr.strip()}")
+            raise ResearchError(
+                f"yt-dlp failed: {result.stderr.strip()}",
+                code=1,
+                error_code="ytdlp_error",
+            )
 
         data = json.loads(result.stdout)
         info = {
@@ -420,6 +527,8 @@ def cmd_transcript(args, g):
                 ],
                 cookies=g.cookies,
                 quiet=True,
+                timeout=g._timeout,
+                verbose=getattr(g, "verbose", False),
             )
             found = [f for f in os.listdir(tmpdir) if f.endswith((".srt", ".vtt"))]
             if found:
@@ -428,8 +537,10 @@ def cmd_transcript(args, g):
 
         if not sub_file:
             raise ResearchError(
-                f"No subtitles available in '{lang}'. Use --lang all to list available.",
-                4,
+                f"No subtitles available in '{lang}'.",
+                code=4,
+                error_code="no_subtitles",
+                hint=f"yt_research.py transcript --lang all {url}",
             )
 
         with open(sub_file, "r", encoding="utf-8", errors="replace") as fh:
@@ -442,6 +553,7 @@ def cmd_transcript(args, g):
                 ["--print", "%(title)s", "--skip-download", url],
                 cookies=g.cookies,
                 quiet=True,
+                timeout=g._timeout,
             )
             title = sanitize_title(title_r.stdout.strip() or "transcript")
             ext = ".srt" if args.timestamps else ".txt"
@@ -472,11 +584,16 @@ def cmd_audio(args, g):
 
     log(f"Downloading audio: {url}...", g.quiet)
 
+    # Audio downloads can be slow; use at least 600s regardless of _timeout
+    audio_timeout = max(g._timeout, 600)
+
     # Get title for filename
     title_r = run_ytdlp(
         ["--print", "%(title)s", "--skip-download", url],
         cookies=g.cookies,
         quiet=True,
+        timeout=g._timeout,
+        verbose=getattr(g, "verbose", False),
     )
     title = sanitize_title(title_r.stdout.strip() or "audio")
 
@@ -493,11 +610,16 @@ def cmd_audio(args, g):
         ],
         cookies=g.cookies,
         quiet=g.quiet,
-        timeout=600,
+        timeout=audio_timeout,
+        verbose=getattr(g, "verbose", False),
     )
 
     if result.returncode != 0:
-        raise ResearchError(f"Audio download failed: {result.stderr.strip()}")
+        raise ResearchError(
+            f"Audio download failed: {result.stderr.strip()}",
+            code=1,
+            error_code="ytdlp_error",
+        )
 
     # Find the actual output file (extension may vary)
     matches = sorted(out_dir.glob(f"{title}.*"), key=lambda p: p.stat().st_mtime, reverse=True)
@@ -544,15 +666,25 @@ def cmd_channel(args, g):
         ],
         cookies=g.cookies,
         quiet=True,
+        timeout=g._timeout,
+        verbose=getattr(g, "verbose", False),
     )
 
     if result.returncode != 0:
-        raise ResearchError(f"yt-dlp failed: {result.stderr.strip()}")
+        raise ResearchError(
+            f"yt-dlp failed: {result.stderr.strip()}",
+            code=1,
+            error_code="ytdlp_error",
+        )
 
     try:
         data = json.loads(result.stdout)
     except json.JSONDecodeError:
-        raise ResearchError("Failed to parse yt-dlp output")
+        raise ResearchError(
+            "Failed to parse yt-dlp output",
+            code=1,
+            error_code="parse_error",
+        )
 
     # Channel name is on the playlist object, not per-entry in flat mode
     ch_name = data.get("channel") or data.get("uploader") or ""
@@ -569,27 +701,36 @@ def cmd_channel(args, g):
     entries = entries[: args.limit]
 
     if not entries:
-        raise ResearchError("No videos found matching criteria.", 4)
+        if _IS_TTY:
+            log("No videos found matching criteria.", g.quiet)
+        else:
+            output_result([], g.format or "json", ndjson=getattr(g, "ndjson", False))
+        return
 
     fmt = g.format or "json"
-    output_result(entries, fmt)
+    output_result(entries, fmt, ndjson=getattr(g, "ndjson", False))
 
 
 # ---------------------------------------------------------------------------
 # Batch processing
 # ---------------------------------------------------------------------------
 
-def run_batch(handler, urls: list, args, g):
-    """Run a handler for each URL, collecting results."""
+def run_batch(handler, items: list, args, g):
+    """Run a handler for each item (URL or search query), collecting results."""
     results = []
     errors = []
 
-    for raw_url in urls:
-        url = raw_url.strip()
-        if not url or url.startswith("#") or url.startswith(";"):
+    for raw_item in items:
+        item = raw_item.strip()
+        if not item or item.startswith("#") or item.startswith(";"):
             continue
 
-        args.url = url
+        # For search, each line is a query; for all others it's a URL
+        if handler is cmd_search:
+            args.query = item
+        else:
+            args.url = item
+
         old_stdout = sys.stdout
         sys.stdout = buf = io.StringIO()
 
@@ -598,8 +739,8 @@ def run_batch(handler, urls: list, args, g):
             output = buf.getvalue()
         except ResearchError as exc:
             sys.stdout = old_stdout
-            errors.append({"url": url, "error": str(exc), "code": exc.code})
-            log(f"Failed: {url} — {exc}", g.quiet)
+            errors.append({"item": item, "error": str(exc), "code": exc.code})
+            log(f"Failed: {item} — {exc}", g.quiet)
             continue
         finally:
             sys.stdout = old_stdout
@@ -614,7 +755,7 @@ def run_batch(handler, urls: list, args, g):
             results.append(output.strip())
 
     if not results:
-        log("All URLs failed.")
+        log("All items failed.")
         sys.exit(3)
 
     fmt = g.format or "json"
@@ -628,7 +769,7 @@ def run_batch(handler, urls: list, args, g):
 
     if errors:
         log(
-            f"\n{len(errors)} of {len(errors) + len(results)} URLs failed.",
+            f"\n{len(errors)} of {len(errors) + len(results)} items failed.",
             g.quiet,
         )
 
@@ -641,7 +782,15 @@ def _add_global_flags(p: argparse.ArgumentParser) -> None:
     """Add global flags to a parser (called on each subparser)."""
     p.add_argument(
         "-f", "--format", choices=["json", "text"], default=None,
-        help="Output format (default: json for search/metadata/channel, text for transcript)",
+        help="Output format. Default: text when stdout is a TTY, json when piped.",
+    )
+    p.add_argument(
+        "--human", action="store_true",
+        help="Force human-readable text output even when piped (alias for --format text)",
+    )
+    p.add_argument(
+        "--ndjson", action="store_true",
+        help="Output one JSON object per line (NDJSON) instead of a JSON array",
     )
     p.add_argument(
         "-t", "--topic", default="general",
@@ -657,11 +806,16 @@ def _add_global_flags(p: argparse.ArgumentParser) -> None:
     )
     p.add_argument("-q", "--quiet", action="store_true",
                    help="Suppress progress messages on stderr")
+    p.add_argument("-v", "--verbose", action="store_true",
+                   help="Show yt-dlp commands and extra diagnostic output")
     p.add_argument("--dry-run", action="store_true",
                    help="Show yt-dlp command without executing")
     p.add_argument(
         "-b", "--batch", default=None, metavar="FILE",
-        help="Read URLs from file (one per line). Use - for stdin.",
+        help=(
+            "Read items from file (one per line). Use - for stdin. "
+            "For 'search', each line is treated as a search query."
+        ),
     )
     p.add_argument("--no-color", action="store_true", help="Disable colored output")
 
@@ -673,10 +827,17 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "examples:\n"
-            '  %(prog)s search "python async tutorial" --count 5\n'
+            '  %(prog)s search "python async tutorial" --limit 5\n'
             '  %(prog)s transcript "https://youtube.com/watch?v=abc" --save -t ml\n'
             "  %(prog)s channel @ThePrimeagen --limit 30\n"
             '  %(prog)s transcript --batch urls.txt --save -t talks\n'
+            '  %(prog)s search --batch queries.txt --limit 5\n'
+            "\nenvironment variables:\n"
+            "  YT_RESEARCH_DIR      Base output directory (default: ~/youtube-research)\n"
+            "  YT_RESEARCH_TOPIC    Topic subdirectory for saved files (default: general)\n"
+            "  YT_RESEARCH_COOKIES  Browser for cookie auth (chrome, firefox, safari, brave, edge)\n"
+            "  YT_RESEARCH_TIMEOUT  Request timeout in seconds (default: 300)\n"
+            "  NO_COLOR             Disable colored output when set\n"
         ),
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
@@ -686,9 +847,10 @@ def build_parser() -> argparse.ArgumentParser:
     # -- search --
     p_s = subs.add_parser("search", help="Search YouTube for videos")
     _add_global_flags(p_s)
-    p_s.add_argument("query", help="Search query string")
+    p_s.add_argument("query", nargs="?", help="Search query string")
     p_s.add_argument(
-        "--count", type=int, default=10, help="Max results (default: 10, max: 50)"
+        "--limit", "--count", type=int, default=10, dest="count",
+        help="Max results (default: 10, max: 50)",
     )
     p_s.add_argument("--min-duration", type=int, default=None, metavar="SECS")
     p_s.add_argument("--max-duration", type=int, default=None, metavar="SECS")
@@ -764,6 +926,8 @@ HANDLERS = {
 
 
 def main() -> None:
+    global _IS_TTY
+
     parser = build_parser()
 
     # Handle bare invocation with no subcommand
@@ -781,6 +945,9 @@ def main() -> None:
         parser.print_help()
         sys.exit(1)
 
+    # Resolve TTY state (module-global for use by handlers)
+    _IS_TTY = sys.stdout.isatty()
+
     # Resolve defaults from env
     if args.dir is None:
         args.dir = os.environ.get("YT_RESEARCH_DIR", str(DEFAULT_DIR))
@@ -789,26 +956,36 @@ def main() -> None:
     if args.cookies is None:
         args.cookies = os.environ.get("YT_RESEARCH_COOKIES")
 
-    # Set default format per subcommand
-    if args.format is None and args.command == "transcript":
+    # Resolve configurable timeout
+    args._timeout = int(os.environ.get("YT_RESEARCH_TIMEOUT", "300"))
+
+    # Resolve output format via TTY auto-detection
+    if getattr(args, "human", False):
         args.format = "text"
+    elif args.format is None:
+        if args.command == "transcript":
+            args.format = "text"  # always text — content, not structure
+        else:
+            args.format = "text" if _IS_TTY else "json"
 
     handler = HANDLERS[args.command]
 
     try:
-        if args.batch and args.command != "search":
+        if args.batch:
             if args.batch == "-":
-                urls = sys.stdin.read().strip().split("\n")
+                items = sys.stdin.read().strip().split("\n")
             else:
                 with open(args.batch, "r") as fh:
-                    urls = fh.read().strip().split("\n")
-            run_batch(handler, urls, args, args)
+                    items = fh.read().strip().split("\n")
+            run_batch(handler, items, args, args)
         else:
-            if args.command != "search" and not getattr(args, "url", None) and not args.batch:
+            if args.command not in ("search",) and not getattr(args, "url", None) and not args.batch:
                 parser.parse_args([args.command, "--help"])
+            if args.command == "search" and not getattr(args, "query", None) and not args.batch:
+                parser.parse_args(["search", "--help"])
             handler(args, args)
     except ResearchError as exc:
-        log(f"Error: {exc}")
+        emit_error(exc)
         sys.exit(exc.code)
 
 

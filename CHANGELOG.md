@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Rename all skills and commands to verb-first convention for consistent imperative naming across plugins (recall-conversations, manage-memory, convert-to-markdown, brainstorm, run-research, search-youtube, generate-image, compress-video, convert-video, make-gif, share-social, extract-audio)
 
+### Fixed
+- Repair YAML frontmatter parse errors in brainstorm, clean-branches, and create-skill skills by adding missing `name` field and quoting `argument-hint` values to prevent flow sequence errors (claude-thinking 0.1.5, claude-coding 0.1.10, claude-skills 0.1.6)
+
 ## [2026-02-23]
 
 ### Changed
