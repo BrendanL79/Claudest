@@ -6,6 +6,9 @@ description: >
   "improve my README", "keep README up to date", "fix the README",
   "my README is stale", "update the readme file", "README needs updating",
   "update readme from git history", or "readme is out of date".
+model: sonnet
+context: fork
+agent: general-purpose
 allowed-tools:
   - Read
   - Glob

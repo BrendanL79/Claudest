@@ -7,7 +7,8 @@ description: >
 model: haiku
 argument-hint: "[branch-pattern] - optional pattern to filter branches"
 allowed-tools:
-  - Bash
+  - Bash(git:*)
+  - Bash(python3:*)
   - AskUserQuestion
 ---
 
