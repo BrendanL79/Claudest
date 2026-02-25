@@ -1,6 +1,10 @@
 # Agent Frontmatter Reference
 
-Load before writing frontmatter in Phase 2, Step 2. Contains the full field catalog,
+**Authoritative source for agent frontmatter.** Keep current with Claude Code releases —
+this file is the single source of truth used by create-agent. No live documentation fetch
+is performed; accuracy depends on this file being maintained.
+
+Load before writing frontmatter in Phase 1, Step 2. Contains the full field catalog,
 description format, color semantics, tool selection, and execution modifiers for agents.
 
 ---

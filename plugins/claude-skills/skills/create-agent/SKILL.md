@@ -4,8 +4,7 @@ description: >
   This skill should be used when the user asks to "create an agent", "make an agent",
   "write an agent", "build a subagent", "add an agent to a plugin", "design an autonomous agent",
   "generate an agent file", "write a system prompt for an agent", "what frontmatter does an agent need",
-  "create a specialized agent", or needs help with agent triggering conditions, expert personas,
-  tool restrictions, or the <example> block description format for agents.
+  "create a specialized agent".
 argument-hint: "[name] - or leave empty to interview"
 ---
 
@@ -19,22 +18,7 @@ complex multi-step work to autonomous subprocesses with isolated context windows
 - **Agents** run in isolated context, have second-person system prompts ("You are..."), use `<example>` XML blocks in descriptions, and are spawned via the Task tool
 - **Skills** inject inline into the current conversation, use imperative body instructions for Claude to follow, and route via description matching on trigger phrases
 
-## Phase 0: Fetch Current Documentation
-
-**Before generating**, retrieve the latest agent documentation:
-
-```
-Use Task tool with subagent_type=claude-code-guide:
-"List all current frontmatter options for Claude Code agents (AGENT.md), including
-tools, disallowedTools, model, color, permissionMode, isolation, background, maxTurns,
-skills, memory, and any new fields added recently."
-```
-
-Capture any fields not in `${CLAUDE_PLUGIN_ROOT}/skills/create-agent/references/agent-frontmatter.md`. If nothing new, proceed. If the subagent fails, proceed — current references are sufficient.
-
-Proceed to Phase 1.
-
-## Phase 1: Understand Requirements
+## Phase 0: Understand Requirements
 
 Parse `$ARGUMENTS` for hints. Gather:
 
@@ -45,9 +29,9 @@ Parse `$ARGUMENTS` for hints. Gather:
 5. **Tool access** — What tools are actually needed? Least-privilege: an analysis agent doesn't need Write.
 6. **Context isolation** — Does it generate heavy output? Should it run in a worktree (`isolation: worktree`)?
 
-Proceed to Phase 2 once domain, trigger conditions, and proactive intent are established.
+If `$ARGUMENTS` is empty or insufficient, use AskUserQuestion to gather domain, trigger conditions, and proactive intent before proceeding. Proceed to Phase 1 once these are established.
 
-## Phase 2: Generate
+## Phase 1: Generate
 
 Apply throughout: second-person for system prompt body, intensional over extensional reasoning,
 minimum viable frontmatter.
@@ -150,7 +134,7 @@ complete working example demonstrating the proactive trigger pattern.
 
 ### Step 5 — Script opportunity scan
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/create-skill/references/script-patterns.md` and apply the
+Read `${CLAUDE_PLUGIN_ROOT}/skills/create-agent/references/script-patterns.md` and apply the
 five signal patterns to every step in the agent's system prompt:
 
 | Signal | Question | If yes → |
@@ -164,6 +148,11 @@ five signal patterns to every step in the agent's system prompt:
 ### Step 6 — Check delegation
 
 Scan existing agents and skills before finalizing:
+
+```
+Glob: .claude/agents/*.md, ~/.claude/agents/*.md (project + global agents)
+Glob: .claude/skills/*/SKILL.md, ~/.claude/skills/*/SKILL.md (project + global skills)
+```
 
 - Does an existing agent cover this domain? Extend it, or tighten scope of the new one
 - Are there skills or reference files to preload via `skills:` frontmatter for domain knowledge?
@@ -182,10 +171,10 @@ When creating a new agent file:
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/create-agent/scripts/validate_agent.py <agent-file> --output json
 ```
 
-Exit 0 = proceed to Phase 3. Exit 1 = parse the `errors` array; each entry has `field`, `message`,
+Exit 0 = proceed to Phase 2. Exit 1 = parse the `errors` array; each entry has `field`, `message`,
 `severity`. Resolve all `critical` and `major` items before writing to disk.
 
-## Phase 3: Deliver
+## Phase 2: Deliver
 
 ### Output Paths
 
@@ -236,9 +225,9 @@ Summarize:
 - Tools granted and why
 - Suggested test scenario
 
-Proceed to Phase 4.
+Proceed to Phase 3.
 
-## Phase 4: Evaluate
+## Phase 3: Evaluate
 
 | Dimension | Criteria |
 |-----------|----------|
@@ -249,6 +238,8 @@ Proceed to Phase 4.
 | **Safety (0-10)** | Tools restricted to minimum needed; no runaway permission grants |
 
 **Target: 9.0/10.0.** If below, refine once addressing the weakest dimension, then deliver.
+
+Phase 3 is complete when score ≥ 9.0 or one refinement pass has run. Deliver: agent file path, key trigger conditions, tools granted and why.
 
 ## Validation Checklist
 
@@ -285,6 +276,4 @@ Proceed to Phase 4.
 | Unclear domain | Ask: what does success look like for this agent? |
 | Scope too broad | Split into 2–3 focused agents with non-overlapping trigger conditions |
 | Conflicts with existing agent | Note overlap; narrow triggering scope or extend the existing one |
-| Naming collision | Ask to rename or confirm overwrite |
-| System prompt too long | Move domain detail to `references/` and preload via `skills:` field |
 | Vague trigger conditions | Ask for 3 concrete user messages that should activate this agent |

@@ -1,6 +1,10 @@
 # Frontmatter Options & Patterns Reference
 
-Load before writing frontmatter in Phase 2, Step 2. Contains the full field catalog,
+**Authoritative source for skill/command frontmatter.** Keep current with Claude Code
+releases — this file is the single source of truth used by create-skill. No live
+documentation fetch is performed; accuracy depends on this file being maintained.
+
+Load before writing frontmatter in Phase 1, Step 2. Contains the full field catalog,
 description patterns, execution modifiers, tool selection framework, and progressive
 disclosure patterns.
 

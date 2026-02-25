@@ -2,42 +2,37 @@
 name: create-skill
 description: >
   This skill should be used when the user asks to "create a skill", "make a command",
-  "generate a prompt", "write a slash command", "build a Claude extension",
-  "add a skill to a plugin", "improve skill description", or "write skill frontmatter".
+  "write a slash command", "build a Claude extension", or "add a skill to a plugin".
 argument-hint: "[skill|command] [name] - or leave empty to interview"
 ---
-
 # Skill & Command Generator
 
 Generate well-structured skills or slash commands. Both are markdown files with YAML frontmatter—they share the same structure but differ in how they're triggered and described.
 
-## Phase 0: Fetch Current Documentation
+## Phase 0: Understand Requirements
 
-**Before generating**, retrieve the latest documentation:
+Parse `$ARGUMENTS` for type hint. If `$ARGUMENTS` is empty or insufficient, use AskUserQuestion to gather requirements — users are often unclear on what type of artifact they need or what the best design is.
 
-```
-Use Task tool with subagent_type=claude-code-guide:
-"List all current frontmatter options for skills and commands, including any execution modifiers, model selection, and structural options."
-```
-
-Capture any frontmatter fields or options not already listed in `references/frontmatter-options.md`. If nothing new, proceed with current references. If the subagent fails, proceed — current references are sufficient.
-
-## Phase 1: Understand Requirements
-
-Parse `$ARGUMENTS` for type hint. User is often unclear and uninformed on best practices of skill development. Continue to interview and help user using `/brainstorm` skill, if available.
-
-Gather requirements:
+Use AskUserQuestion to collect:
 1. **Primary objective** — What should this do?
 2. **Trigger scenarios** — When should it activate?
 3. **Inputs/outputs** — What does it receive and produce?
 4. **Complexity** — Simple, standard, or complex?
 5. **Execution needs** — Isolated context? Delegated to specialized agent?
+Proceed to Phase 1 when at minimum Objective and Trigger Scenarios are established. Remaining dimensions can be resolved during generation.
 
-Proceed to Phase 2 when at minimum Objective and Trigger Scenarios are established. Remaining dimensions can be resolved during generation.
-
-## Phase 2: Generate
+## Phase 1: Generate
 
 Apply these principles throughout generation: use imperative voice and terse phrasing because every token in a generated skill body costs budget on every invocation, and Claude extrapolates well from precise nudges. Prefer instruction over example — state the rule with its reasoning so it generalizes to every input.
+
+**If creating a new skill directory (not editing an existing file):**
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/create-skill/scripts/init_skill.py <name> --path <dir> [--resources scripts,references,assets] [--examples]
+```
+
+Exit 0 = directory created, proceed to Step 1.
+Exit 1 = naming collision; ask user whether to overwrite or rename.
 
 ### Step 1 — Choose type
 
@@ -98,7 +93,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/skills/create-skill/references/script-patterns.md` a
 
 For each identified script candidate:
 1. Choose the archetype from `references/script-patterns.md` (init/validate/transform/package/query)
-2. If the interface is non-trivial, delegate to `create-cli` skill to design it
+2. If the interface is non-trivial, delegate to `claude-skills:create-cli` skill to design it
 3. Scaffold the script in `scripts/` using the Python template from `references/script-patterns.md`
 4. Wire it into SKILL.md with: trigger condition, exact invocation, output interpretation
 
@@ -114,8 +109,7 @@ For each workflow step, ask: "Do we already have this?"
 ```
 
 **Common delegation patterns:**
-- Git commits → `SlashCommand: /commit`
-- Code review → `Skill: /code-review`
+- Git commits → `Skill: claude-coding:commit`
 
 **Always use fully qualified names:**
 - `Skill: plugin-dev:hook-development` (not just "hook-development")
@@ -124,22 +118,13 @@ For each workflow step, ask: "Do we already have this?"
 
 ### Step 6 — Validate
 
-When generating a new skill directory (not editing an existing single file):
-
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/create-skill/scripts/validate_skill.py <skill-directory> --output json
 ```
 
-Exit 0 = proceed to Phase 3. Exit 1 = parse the `errors` array; each entry has `field`, `message`, `severity`. Resolve all `critical` and `major` items before writing to disk.
+Exit 0 = proceed to Phase 2. Exit 1 = parse the `errors` array; each entry has `field`, `message`, `severity`. Resolve all `critical` and `major` items before writing to disk.
 
-### Explain Your Choices
-
-When presenting the generated skill/command to the user, briefly explain:
-- **What you set and why** — "Added `context: fork` because this workflow generates heavy output"
-- **What you excluded and why** — "Left `model` unset (inherits default), `hooks` omitted (no validation needed)"
-- **Add more trigger phrases if routing misses expected inputs**
-
-## Phase 3: Deliver
+## Phase 2: Deliver
 
 ### Output Paths
 
@@ -159,6 +144,23 @@ This will [create new / overwrite existing] file.
 Proceed?
 ```
 
+### Explain Your Choices
+
+When presenting the generated skill/command to the user, briefly explain:
+- **What you set and why** — "Added `context: fork` because this workflow generates heavy output"
+- **What you excluded and why** — "Left `model` unset (inherits default), `hooks` omitted (no validation needed)"
+- **Add more trigger phrases if routing misses expected inputs**
+
+### Package for Distribution
+
+Only when user explicitly requests a distributable file, run:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/create-skill/scripts/package_skill.py <skill-directory> [output-dir]
+```
+
+Exit 0 = `.skill` file created at output path. Exit 1 = validation failed; read stdout for details.
+
 ### After Creation
 
 Summarize what was created:
@@ -167,7 +169,7 @@ Summarize what was created:
 - How to invoke/trigger
 - Suggested test scenario
 
-## Phase 4: Structural Lint
+## Phase 3: Structural Lint
 
 After writing the skill to disk, invoke the skill-lint agent to run a structural audit:
 
@@ -177,12 +179,12 @@ Use Task tool with subagent_type=claude-skills:skill-lint:
 minor findings for user decision."
 ```
 
-Wait for the agent to complete. If it auto-applied fixes, note them in the Phase 5 summary.
+Wait for the agent to complete. If it auto-applied fixes, note them in the Phase 4 summary.
 If it reports minor findings, include them in the evaluation output for the user to decide.
 
-Proceed to Phase 5 when the lint agent returns.
+Proceed to Phase 4 when the lint agent returns.
 
-## Phase 5: Evaluate
+## Phase 4: Evaluate
 
 Score the generated skill/command:
 
@@ -196,103 +198,8 @@ Score the generated skill/command:
 
 **Target: 9.0/10.0.** If below, refine once addressing the weakest dimension, then deliver.
 
-## Bundled Scripts
-
-**Initialize a new skill — invoke at Step 1 when creating a new skill directory (not when editing an existing file):**
-
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/create-skill/scripts/init_skill.py <name> --path <dir> [--resources scripts,references,assets] [--examples]
-```
-
-Exit 0 = directory created, proceed to Step 2. Exit 1 = naming collision; ask user whether to overwrite or rename.
-
-**Validate a skill — invoke at Step 6 before delivering:**
-
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/create-skill/scripts/validate_skill.py <skill-directory> --output json
-```
-
-Exit 0 = proceed to Phase 3. Exit 1 = parse `errors` array; resolve all `critical` and `major` items before writing.
-
-**Package for distribution — invoke only when user explicitly requests a distributable file:**
-
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/create-skill/scripts/package_skill.py <skill-directory> [output-dir]
-```
-
-Exit 0 = `.skill` file created at output path. Exit 1 = validation failed; read stdout for details.
-
-## Degrees of Freedom
-
-Match instruction specificity to the task's fragility and variability:
-
-| Level | When to Use | Format |
-|-------|-------------|--------|
-| **High freedom** | Multiple valid approaches, context-dependent decisions | Text instructions, heuristics |
-| **Medium freedom** | Preferred pattern exists, some variation acceptable | Pseudocode, scripts with parameters |
-| **Low freedom** | Fragile operations, consistency critical, specific sequence required | Exact scripts, few parameters |
-
-## Quality Standards
-
-**Format Economy:**
-- Simple task → direct instruction, no sections
-- Moderate task → light organization with headers
-- Complex task → full semantic structure
-
-**Balance Flexibility with Precision:**
-- Loose enough for creative exploration
-- Tight enough to prevent ambiguity
-
-**Remove ruthlessly:** Filler phrases, obvious implications, redundant framing, excessive politeness
-
-## Validation Checklist
-
-Before finalizing a skill or command:
-
-**Structure:**
-- [ ] SKILL.md file exists with valid YAML frontmatter
-- [ ] Frontmatter has `name` and `description` fields
-- [ ] Markdown body is present and substantial
-- [ ] Referenced files actually exist
-
-**Description Quality:**
-- [ ] Uses third person ("This skill should be used when...")
-- [ ] Includes specific trigger phrases users would say
-- [ ] Lists concrete scenarios ("create X", "configure Y")
-- [ ] Not vague or generic
-
-**Content Quality:**
-- [ ] Body uses imperative/infinitive form, not second person
-- [ ] Body is focused and lean (1,500–2,000 words ideal, <5k max)
-- [ ] Detailed content moved to references/
-- [ ] Examples are complete and working
-- [ ] Scripts are executable and documented
-- [ ] Script opportunities identified via five signal patterns (references/script-patterns.md)
-- [ ] Script references in SKILL.md include trigger condition, invocation, output handling
-- [ ] Consistency-critical steps are scripted, not left to LLM re-generation
-
-**Progressive Disclosure:**
-- [ ] Core concepts in SKILL.md
-- [ ] Detailed docs in references/
-- [ ] Working code in examples/
-- [ ] Utilities in scripts/
-- [ ] SKILL.md references these resources
-
-**Testing:**
-- [ ] Skill triggers on expected user queries
-- [ ] Content is helpful for intended tasks
-- [ ] No duplicated information across files
-- [ ] References load when needed
-
-## Error Handling
-
-| Issue | Action |
-|-------|--------|
-| Unclear requirements | Ask clarifying questions |
-| Missing context | Request examples or constraints |
-| Path issues | Verify directory exists, create with confirmation |
-| Type unclear | Default to skill if auto-triggering desired |
+Before finalizing, load `${CLAUDE_PLUGIN_ROOT}/skills/create-skill/references/generation-standards.md` and verify the validation checklist passes.
 
 ---
 
-Execute phases sequentially. Always fetch current documentation first.
+Execute phases sequentially.
