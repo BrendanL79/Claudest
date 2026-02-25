@@ -8,7 +8,6 @@ description: >
   changelog", "release notes", or says "my project needs a CHANGELOG".
 model: sonnet
 context: fork
-agent: general-purpose
 allowed-tools:
   - Bash(git:*)
   - Bash(python3:*)

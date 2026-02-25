@@ -99,7 +99,8 @@ and tool selection framework.
 - Is `model: opus` set for a task that `sonnet` would handle? Overuse wastes cost.
 - Does the skill have unrestricted `Bash` when a scoped pattern (`Bash(git:*)`) would work?
 - Does the skill have tools in `allowed-tools` it never uses? Dead entries add noise.
-- Is `context: fork` set without `agent:`, or `agent:` set without `context: fork`?
+- Is `agent:` set without `context: fork`? The `agent:` field is only valid alongside `context: fork`.
+  Note: `context: fork` without `agent:` is valid — it defaults to `general-purpose`.
 
 **Gaps:**
 - Does the skill do heavy analysis that would benefit from `model: opus`?
@@ -136,7 +137,7 @@ of one, covering only the shape of that example.
 
 ### Dimension 4 — Agentic vs Deterministic Split
 
-**Load `${CLAUDE_PLUGIN_ROOT}/skills/repair-skill/references/script-patterns.md` before auditing this dimension.** It contains
+**Load `${CLAUDE_PLUGIN_ROOT}/skills/create-skill/references/script-patterns.md` before auditing this dimension.** It contains
 the five signal patterns for recognizing a script candidate, CLI design conventions,
 common archetypes (init, validate, transform, package, query), and the delegation
 pattern for using `create-cli` to design the interface.

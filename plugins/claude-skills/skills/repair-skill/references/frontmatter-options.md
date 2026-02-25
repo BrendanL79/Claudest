@@ -38,11 +38,13 @@ Audit rule: `opus` is only justified when the task genuinely requires deep reaso
 
 Use `context: fork` when: the skill produces heavy output that would pollute the main
 conversation context; the skill needs clean separation from conversation history; the
-skill delegates to a specialized agent via `agent:`. Requires `agent:` to be set.
+skill delegates to a specialized agent via `agent:`. `agent:` is optional — omitting it
+defaults to `general-purpose`.
 
 ### `agent` (string)
 
-Requires `context: fork`. Routes execution to a specialized agent type.
+Optional. Only valid with `context: fork`. Routes execution to a specialized agent type.
+Defaults to `general-purpose` when omitted.
 
 | Value | Capabilities |
 |-------|-------------|

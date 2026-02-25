@@ -6,7 +6,6 @@ description: >
   Also triggers on "create a commit" or "commit what I've done".
 model: sonnet
 context: fork
-agent: general-purpose
 argument-hint: "[push]"
 allowed-tools:
   - Bash(git:*)

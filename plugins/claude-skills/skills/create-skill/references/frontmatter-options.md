@@ -84,9 +84,9 @@ description: Deploy to staging environment
 
 Use these when the default behavior isn't sufficient:
 
-- **`context: fork`** — Run in isolated sub-agent. Use for heavy workflows that would pollute main context, or when you need clean separation. Requires `agent:`.
+- **`context: fork`** — Run in isolated sub-agent. Use for heavy workflows that would pollute main context, or when you need clean separation. `agent:` is optional — omitting it defaults to `general-purpose`.
 
-- **`agent: [type]`** — Route to a specialized agent. Examples: `Explore` for codebase search, `Plan` for architecture decisions, or custom agents you've defined.
+- **`agent: [type]`** — Optional. Route to a specialized agent. Examples: `Explore` for codebase search, `Plan` for architecture decisions, or custom agents you've defined. Only valid with `context: fork`.
 
 - **`model: [level]`** — Override the model. Valid values: `haiku` (fast, cheap, simple tasks), `sonnet` (balanced default), `opus` (complex reasoning). Omit to inherit from the current conversation.
 

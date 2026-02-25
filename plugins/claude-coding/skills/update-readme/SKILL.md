@@ -8,7 +8,6 @@ description: >
   "update readme from git history", or "readme is out of date".
 model: sonnet
 context: fork
-agent: general-purpose
 allowed-tools:
   - Read
   - Glob
