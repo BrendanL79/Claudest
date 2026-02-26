@@ -41,6 +41,9 @@ Before finalizing a skill or command:
 **Description Quality:**
 - [ ] Uses third person ("This skill should be used when...")
 - [ ] Includes specific trigger phrases users would say
+- [ ] Trigger phrases derived from user's actual words, not formalized paraphrases
+- [ ] Under 100 tokens (150 absolute max)
+- [ ] Negative triggers present if adjacent skills could false-trigger
 - [ ] Lists concrete scenarios ("create X", "configure Y")
 - [ ] Not vague or generic
 

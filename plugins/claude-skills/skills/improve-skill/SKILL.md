@@ -51,7 +51,7 @@ This grounds the entire analysis in the correct frame.
 
 If the user named a specific complaint: orient the analysis toward that area and scan for
 related issues in the same workflow region. If the user is unsure: run the full Phase 2 audit
-across all four sub-analyses.
+across all five sub-analyses.
 
 Phase 1 is complete when user intent is established and the skill's purpose is stated.
 
@@ -61,7 +61,7 @@ Load `${CLAUDE_PLUGIN_ROOT}/skills/improve-skill/references/effectiveness-rubric
 starting. It contains the severity framework, improvement type definitions, and effort/impact
 calibration criteria used in Phase 3.
 
-Run all four sub-analyses. For each finding record: what the issue is, why it reduces
+Run all five sub-analyses. For each finding record: what the issue is, why it reduces
 effectiveness for the user, and the concrete improvement.
 
 ---
@@ -135,7 +135,28 @@ Evaluate the skill's interaction design:
   prose; one they apply iteratively needs more structure.
 - Are there steps where the skill makes a consequential decision without user input?
 
-Phase 2 is complete when all four sub-analyses are finished and findings are recorded.
+---
+
+### 2e — Edge Case Stress Test
+
+After walking the main path (2a), deliberately try to break the skill. Identify 3–5
+adversarial inputs that test failure modes:
+
+- **Missing or malformed input**: What happens when expected files don't exist, paths are
+  wrong, or arguments are empty/garbled?
+- **Contradictory requirements**: What if the user's stated goal conflicts with their input
+  (e.g., "improve this skill" on a file that isn't a skill)?
+- **Unsupported configurations**: What if the skill encounters a structure it wasn't designed
+  for — a different framework version, an edge-case project layout, an unexpected file format?
+- **Boundary conditions**: What if the input is very large (500-line SKILL.md), very small
+  (empty file), or has unusual characters in paths/names?
+
+For each adversarial input, evaluate: does the skill detect the problem and surface a useful
+error, silently produce wrong output, or crash the workflow? Map findings to improvement
+types: missing error handling → NEW FEATURE, poor failure message → UX IMPROVEMENT,
+undetected bad state → ACCURACY FIX.
+
+Phase 2 is complete when all five sub-analyses are finished and findings are recorded.
 
 ## Phase 3: Improvement Proposal
 

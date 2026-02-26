@@ -47,6 +47,9 @@ Run after all improvements are applied:
 **Frontmatter Quality:**
 - [ ] Description uses third-person ("This skill should be used when...")
 - [ ] 3–5+ varied trigger phrases; includes naive user phrasing
+- [ ] Description under 100 tokens (150 absolute max)
+- [ ] Trigger phrases derived from natural user language, not formalized paraphrases
+- [ ] Negative triggers present if skill operates in a crowded domain with adjacent skills
 - [ ] Uses `>` scalar, not `|`
 - [ ] `argument-hint` present if skill reads `$ARGUMENTS`/`$1`; value quoted if it contains `[...]`
 

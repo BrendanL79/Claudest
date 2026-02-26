@@ -43,6 +43,8 @@ Exit 1 = naming collision; ask user whether to overwrite or rename.
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/create-skill/references/frontmatter-options.md` for the full field catalog, description patterns, tool selection framework, and execution modifiers.
 
+**Description density rules:** Keep descriptions under 100 tokens (150 absolute max) — they load every session. Derive trigger phrases from the user's actual words in Phase 0, not paraphrases. See the token budget and trigger derivation principles in `frontmatter-options.md`.
+
 **`context: fork` decision rule:** Add it only when ALL three hold: (1) outputs are predictable
 and deterministic, not open-ended analysis or conversation; (2) the primary deliverable is a
 side effect the user doesn't read inline — a file written, commit created, PR opened;
@@ -51,7 +53,18 @@ output is what the user asked for (reports, audits, research, transcripts, advic
 
 **Intensional over extensional — apply to all generated content.** State the rule directly with its reasoning rather than listing examples that imply the rule. An intensional rule ("quoted phrases must be verbatim user speech *because* routing matches on literal tokens") generalizes to every input the skill will encounter. An extensional approach requires the reader to reverse-engineer the rule — two reasoning hops instead of one, covering only the shape of those specific examples. Since this skill generates instructions that will themselves guide further generation, the quality of reasoning propagates.
 
-### Step 3 — Write body
+### Step 3 — Validate description discoverability
+
+Before writing the body, verify the description will route correctly. Mentally generate:
+
+1. **3 should-trigger prompts** — realistic user messages that should activate this skill. Include at least one naive phrasing from a user who has never heard of the skill.
+2. **3 should-NOT-trigger prompts** — messages in adjacent domains that are close but should not activate. These test whether the description is too broad.
+
+Evaluate: does the description cover all should-trigger prompts? Would it plausibly reject the should-NOT-trigger prompts? If coverage is weak, revise the description — add missing trigger phrases, tighten language to exclude adjacent domains, or add a negative trigger ("Not for X").
+
+This step catches routing misses before the rest of the skill is built. Proceed when description coverage is adequate.
+
+### Step 4 — Write body
 
 **Construction rules:**
 - State objective explicitly in first sentence
@@ -85,7 +98,7 @@ Brief overview (1-2 sentences).
 | `@$1` | Load file from argument |
 | Exclamation + backticks | Execute bash command, include output |
 
-### Step 4 — Script opportunity scan
+### Step 5 — Script opportunity scan
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/create-skill/references/script-patterns.md` and apply the five signal patterns to every workflow step in the skill being generated:
 
@@ -105,7 +118,7 @@ For each identified script candidate:
 
 **Wiring rule:** A script reference must state *when* to invoke (trigger condition), *how* to invoke (exact command with flags), and *what to do* with the result (exit code handling, which output fields matter).
 
-### Step 5 — Check delegation
+### Step 6 — Check delegation
 
 Scan for existing resources before finalizing:
 
@@ -122,7 +135,7 @@ For each workflow step, ask: "Do we already have this?"
 - `SlashCommand: /plugin-dev:create-plugin` (not just "create-plugin")
 - `Task: subagent_type=plugin-dev:agent-creator`
 
-### Step 6 — Validate
+### Step 7 — Validate
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/create-skill/scripts/validate_skill.py <skill-directory> --output json

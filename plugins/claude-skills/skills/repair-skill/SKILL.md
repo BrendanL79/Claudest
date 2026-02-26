@@ -84,6 +84,16 @@ costs budget across every session. Audit for violations *and* gaps:
 - **Name validity:** Is the skill name lowercase, hyphens only, max 64 chars? Verb-led for
   commands? Namespaced when it aids routing clarity? These constraints ensure filesystem
   compatibility, command-line ergonomics, and unambiguous routing. *Minor if wrong.*
+- **Trigger accuracy:** Mentally generate 3 prompts that should trigger this skill and 3
+  that should NOT (from adjacent domains). Does the description cover the should-triggers
+  and exclude the shouldn't-triggers? Sparse coverage or broad false-trigger surface is a
+  routing quality gap. *Major if coverage is sparse.*
+- **Token budget:** Is the description over 100 tokens? Per-session cost scales with
+  description length across all installed skills. Over 150 tokens is a violation (major);
+  100–150 is a gap (minor) — tighten by prioritizing trigger phrases over prose.
+- **Negative triggers absent:** For skills in crowded domains (multiple skills with
+  overlapping concerns), does the description include explicit "Not for X" exclusions?
+  Negative triggers sharpen the routing decision boundary. *Minor.*
 
 ---
 

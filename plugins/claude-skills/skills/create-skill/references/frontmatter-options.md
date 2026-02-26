@@ -53,15 +53,19 @@ argument-hint: "[arg1] [arg2]"      # Document expected arguments; quote if valu
 - **Quoted phrases must be verbatim user speech.** Routing matches on literal token patterns. Write the exact words a user would type, not paraphrases: `"create a hook"` triggers correctly; `"hook creation workflows"` may not.
 - **The description is always in context, even when the skill isn't active.** Every session pays the token cost of every skill's description. Density matters: cover more trigger patterns in fewer words. Avoid restating the skill name or explaining what skills are.
 - **Cover the naive phrasing.** A user who doesn't know this skill exists won't search for it by name — they'll describe their problem in plain language. Include the phrasing someone would use who has never heard of this skill.
+- **Include negative triggers for adjacent domains.** Routing is a classification problem — explicit exclusions sharpen the decision boundary. Add "Not for X" or "Don't use for Y" when the skill could plausibly false-trigger on a related but distinct domain.
 - **3–5 trigger phrases minimum.** Single-phrase descriptions have high miss rates. Varied phrases improve routing coverage across synonym space.
+- **Derive trigger phrases from user language.** Pull phrases from how the user actually described their need during requirements gathering, not from formalized or paraphrased versions. If the user said "fix my skill," use "fix my skill" — not "skill remediation." When no user phrasing is available, imagine the most natural way someone would describe this need without knowing the skill exists.
+- **Keep descriptions under 100 tokens (150 absolute max).** A 10-skill installation at 170 tokens each burns ~1,700 tokens per session on routing metadata alone. At 100 tokens that drops to ~1,000. Prioritize trigger phrases over explanatory prose — the description's job is routing, not documentation.
 - **Use `>` scalar, not `|`.** Folded scalar (`>`) collapses newlines to spaces, producing a single continuous string — correct for descriptions. Literal scalar (`|`) preserves newlines, which can create unexpected whitespace when parsed.
 
 ```yaml
-# Correct — third-person, verbatim phrases, folded scalar
+# Correct — third-person, verbatim phrases, folded scalar, negative trigger
 description: >
   This skill should be used when the user asks to "create a hook",
   "add validation", "implement lifecycle automation", or mentions
-  pre/post tool events.
+  pre/post tool events. Not for modifying existing hooks or debugging
+  hook failures.
 
 # Wrong — vague, no trigger phrases, not third-person
 description: Provides guidance for hooks.

@@ -17,6 +17,12 @@ regardless of whether the skill is active. Use `>` folded scalar (not `|` litera
 be third-person for skills ("This skill should be used when..."), verb-first under 60
 chars for commands.
 
+Audit rules for description quality:
+- **Token budget:** Under 100 tokens for most skills, 150 absolute max. At 170+ tokens, a 10-skill installation burns ~1,700 tokens per session on routing metadata alone. Prioritize trigger phrases over explanatory prose.
+- **Trigger phrase derivation:** Phrases should be verbatim user speech — the exact words someone would type, not formalized paraphrases. "fix my skill" triggers better than "skill remediation workflow."
+- **Negative triggers:** In crowded domains (multiple skills with overlapping concerns), include "Not for X" or "Don't use for Y" to sharpen the routing decision boundary.
+- **3–5 varied trigger phrases minimum.** Single-phrase descriptions have high miss rates. Include naive phrasing from a user who has never heard of this skill.
+
 ### `model` (enum)
 
 | Value | When to use |
