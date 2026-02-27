@@ -4,7 +4,9 @@ description: >
   This skill should be used when the user asks to "create an OpenClaw skill",
   "make a claw skill", "build a skill for OpenClaw", "write a SKILL.md for openclaw",
   "add a skill to openclaw", "generate openclaw skill frontmatter", "create a clawhub skill",
-  or wants to author a new skill for the pi-coding-agent / OpenClaw ecosystem.
+  "port a skill to OpenClaw", "convert a Claude Code skill to claw",
+  "migrate my skill to openclaw", or wants to author a new skill or port an existing
+  Claude Code skill for the pi-coding-agent / OpenClaw ecosystem.
 argument-hint: "[skill|command] [name] - or leave empty to interview"
 ---
 
@@ -35,6 +37,17 @@ Parse `$ARGUMENTS` for type hint. Users are often unclear on OpenClaw-specific c
 
 Proceed to Phase 2 when at minimum Objective and Trigger Scenarios are established.
 
+### Port Mode
+
+When the user provides an existing Claude Code skill to port (file path or pasted content), skip the interview and apply this translation sequence:
+
+1. Read the source skill and all its supporting files (scripts, references, examples)
+2. **Frontmatter** — Remove invalid fields (`model`, `context`, `agent`, `allowed-tools`, `hooks`, `license`). Add `metadata` with `requires` if scripts need specific binaries. See `{baseDir}/references/frontmatter-options.md` for valid fields.
+3. **Tool names** — Apply the translation table from `{baseDir}/references/claw-patterns.md`: `Bash`→`exec`, `Read`→`read`, `Write`→`write`, `Edit`→`edit`, `Glob`/`Grep`→`exec`+`find`/`rg`, `WebSearch`→`web_search`, `WebFetch`→`web_fetch`, `Task`→`sessions_spawn`, `AskUserQuestion`→conversational asking
+4. **Paths** — Replace `$CLAUDE_PLUGIN_ROOT` with `{baseDir}`. Remove `@file` injection and bang-backtick references.
+5. **Scripts/references** — Copy as-is if they are platform-neutral Python with no Claude Code SDK dependencies. Update any internal tool name references.
+6. Proceed directly to Phase 2 Step 7 (Validate) with translated content, then Phase 3 (Deliver).
+
 ## Phase 2: Generate
 
 Apply throughout generation: use imperative voice and terse phrasing because every token in a generated skill body costs budget on every invocation. Prefer instruction over example — state the rule with its reasoning so it generalizes to every input.
@@ -59,9 +72,22 @@ Read `{baseDir}/references/frontmatter-options.md` for the full OpenClaw field c
 
 Key constraint: **`metadata` must be a single-line JSON object on one line.** Multi-line YAML mappings under `metadata` are not valid in OpenClaw.
 
+**Description density rules:** Keep descriptions under ~400 characters / ~100 tokens (600 chars / 150 tokens absolute max) — they load every session. Per the OpenClaw cost formula, each skill costs `195 + 97 + field lengths` characters in the system prompt; a 10-skill install with verbose descriptions burns significant context on routing metadata alone. Derive trigger phrases from the user's actual words in Phase 1, not paraphrases. See the token budget and trigger derivation principles in `{baseDir}/references/frontmatter-options.md`.
+
 **Intensional over extensional** — state the rule with its reasoning rather than listing examples that imply the rule. An intensional rule generalizes to every input the skill will encounter; an extensional list only covers the shapes shown.
 
-### Step 3 — Write body
+### Step 3 — Validate description discoverability
+
+Before writing the body, verify the description will route correctly. Mentally generate:
+
+1. **3 should-trigger prompts** — realistic user messages that should activate this skill. Include at least one naive phrasing from a user who has never heard of the skill.
+2. **3 should-NOT-trigger prompts** — messages in adjacent domains that are close but should not activate. These test whether the description is too broad.
+
+Evaluate: does the description cover all should-trigger prompts? Would it plausibly reject the should-NOT-trigger prompts? If coverage is weak, revise the description — add missing trigger phrases, tighten language to exclude adjacent domains, or add a negative trigger ("Not for X").
+
+This step catches routing misses before the rest of the skill is built. Proceed when description coverage is adequate.
+
+### Step 4 — Write body
 
 **Construction rules:**
 - State objective explicitly in first sentence
@@ -95,7 +121,7 @@ Brief overview (1-2 sentences).
 
 Note: `@file` injection and bang-backtick command expansion are Claude Code features specific to Claude Code's skill loader implementation — the pi-coding-agent skill loader only supports `{baseDir}` path substitution and does not implement these extensions. Do not use them in generated OpenClaw skills.
 
-### Step 4 — Script opportunity scan
+### Step 5 — Script opportunity scan
 
 Read `{baseDir}/references/script-patterns.md` and apply the five signal patterns to every workflow step in the skill being generated:
 
@@ -116,7 +142,7 @@ For each identified script candidate:
 
 Scripts are invoked via the `exec` tool (not `Bash`). Reference paths using `{baseDir}/scripts/script.py`.
 
-### Step 5 — Check delegation
+### Step 6 — Check delegation
 
 Read `{baseDir}/references/claw-patterns.md` for delegation patterns, `sessions_spawn` usage, cross-skill reference conventions, and tool group translations (Claude Code → OpenClaw tool name mapping).
 
@@ -134,7 +160,7 @@ For each workflow step, ask: "Do we already have this?"
 
 There is no `Skill` tool in OpenClaw — skills are invoked by the routing model, not programmatically from within another skill.
 
-### Step 6 — Validate
+### Step 7 — Validate
 
 When generating a new skill directory (not editing an existing single file):
 
@@ -236,6 +262,9 @@ Before finalizing an OpenClaw skill or command:
 **Description Quality:**
 - [ ] Uses third person ("This skill should be used when...")
 - [ ] Includes specific trigger phrases users would say (verbatim)
+- [ ] Trigger phrases derived from user's actual words, not formalized paraphrases
+- [ ] Under ~400 chars (~100 tokens); 600 chars (~150 tokens) absolute max
+- [ ] Negative triggers present if adjacent skills could false-trigger
 - [ ] Lists concrete scenarios ("create X", "configure Y")
 - [ ] Not vague or generic
 

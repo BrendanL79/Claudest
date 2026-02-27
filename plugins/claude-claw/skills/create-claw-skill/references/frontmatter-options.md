@@ -114,7 +114,10 @@ metadata: '{"openclaw": {"emoji": "🌐", "homepage": "https://example.com", "in
 - **Quoted phrases must be verbatim user speech.** Routing matches on literal token patterns. Write the exact words a user would type, not paraphrases.
 - **The description is always in context, even when the skill isn't active.** Every session pays the token cost of every skill's name, description, and location. Density matters. Avoid restating the skill name or explaining what skills are.
 - **Cover the naive phrasing.** A user who doesn't know this skill exists won't search for it by name — they'll describe their problem in plain language.
-- **3–5 trigger phrases minimum.** Single-phrase descriptions have high miss rates.
+- **3–5 trigger phrases minimum.** Single-phrase descriptions have high miss rates. Include at least one naive phrasing from a user who has never heard of the skill.
+- **Derive trigger phrases from user language.** Pull phrases from how the user actually described their need during requirements gathering, not from formalized or paraphrased versions. If the user said "fix my skill," use "fix my skill" — not "skill remediation." When no user phrasing is available, imagine the most natural way someone would describe this need without knowing the skill exists.
+- **Negative triggers in crowded domains.** When multiple skills have overlapping concerns, include "Not for X" or "Don't use for Y" to sharpen the routing decision boundary. Example: a CSS-focused skill might add "Not for Tailwind configuration" if a separate Tailwind skill exists.
+- **Token budget: ~400 chars (~100 tokens), 600 chars (~150 tokens) absolute max.** Per the OpenClaw cost formula, each skill costs `195 + 97 + field lengths` characters in the system prompt (~4 chars/token). A 10-skill install with 600-char descriptions burns ~2,400 tokens per session on routing metadata alone. Prioritize trigger phrases over explanatory prose.
 - **Use `>` scalar, not `|`.** Folded scalar (`>`) collapses newlines to spaces, producing a single continuous string. Literal scalar (`|`) preserves newlines, which creates unexpected whitespace.
 
 ```yaml
