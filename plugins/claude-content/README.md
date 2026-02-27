@@ -1,4 +1,4 @@
-# claude-content v0.2.3
+# claude-content v0.3.0
 
 Content creation and processing tools for Claude Code. Six skills covering image generation, video manipulation, social media formatting, and audio extraction.
 
@@ -21,7 +21,7 @@ Most content workflows involve the same small set of operations applied repeated
 
 ### generate-image
 
-Generate and edit images using Google's Gemini Pro Image API. Handles three modes: text-to-image (describe what you want), image-to-image (provide a source image and editing instructions), and multi-reference composition (combine elements from up to 14 source images with a prompt). Supports batch generation (up to 4 variations), Google Search grounding, and automatic resolution and aspect ratio detection from input images. Every generated image gets a companion `.md` log file containing the prompt used. Images save to `~/Documents/generated images/` by default unless a custom path is specified.
+Generate and edit images using two model tiers: Nano Banana (default, fast generation with extended aspect ratios up to 8:1 panoramic, thinking mode, and Google Search grounding) and Nano Banana Pro (higher quality, up to 2K resolution). Handles three modes: text-to-image (describe what you want), image-to-image (provide a source image and editing instructions), and multi-reference composition (combine elements from up to 14 source images with a prompt). Supports batch generation (up to 4 variations), JPEG output with configurable quality, and automatic resolution and aspect ratio detection from input images. Every generated image gets a companion `.md` log file containing the prompt used. Images save to `~/Documents/generated images/` by default unless a custom path is specified.
 
 Triggers on: "generate an image", "create a picture", "make me a logo", "edit this image", "remove the background", "change the style", "combine these images", "add text to image", "make a sticker", "product mockup".
 

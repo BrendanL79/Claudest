@@ -84,7 +84,7 @@ Base image (the canvas being edited) goes last in the `--input` list. Gemini num
 
 ## Multi-Image Composition
 
-Reference images provide visual context — the prompt connects them. Point to images by number, assign elements to positions, and describe only what the model cannot infer from the images themselves. Supports up to 14 reference images.
+Reference images provide visual context — the prompt connects them. Point to images by number, assign elements to positions, and describe only what the model cannot infer from the images themselves. Nano Banana supports up to 14 reference images; Nano Banana Pro supports up to 11 (6 objects + 5 character references).
 
 ---
 

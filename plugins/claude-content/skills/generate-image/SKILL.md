@@ -4,9 +4,10 @@ description: >
   This skill should be used when the user asks to "generate an image", "create a
   picture", "make me a logo", "edit this image", "remove the background", "change the
   style", "combine these images", "add text to image", "style transfer", "make a
-  sticker", "product mockup", or any image creation/manipulation request. Handles t2i
-  (text-to-image), i2i (image-to-image editing), and multi-reference composition
-  using Gemini Pro.
+  sticker", "product mockup", "use nano banana", "generate with nano banana pro",
+  or any image creation/manipulation request. Handles t2i (text-to-image), i2i
+  (image-to-image editing), and multi-reference composition using Nano Banana
+  (default) and Nano Banana Pro models.
 allowed-tools:
   - Bash(uv:*)
   - Read
@@ -15,13 +16,13 @@ allowed-tools:
 
 # Image Generation
 
-Generate and edit images using Google's Gemini Pro Image API. Requires `GEMINI_API_KEY` environment variable and `uv` package manager.
+Generate and edit images using Nano Banana (Gemini 3.1 Flash Image) and Nano Banana Pro (Gemini 3 Pro Image). Nano Banana is the default (fast, high-volume). Nano Banana Pro is available for maximum quality. Requires `GEMINI_API_KEY` environment variable and `uv` package manager.
 
 ## Workflow
 
-1. **Understand** — Determine mode (t2i, i2i, multi-reference), gather parameters (aspect ratio, resolution, output path). Exit: mode and parameters are clear.
+1. **Understand** — Determine mode (t2i, i2i, multi-reference), gather parameters (model, aspect ratio, resolution, output path). Exit: mode and parameters are clear.
 2. **Craft prompt** — Apply the prompting principles below to write the prompt. For t2i, use narrative prose. For i2i/multi-reference, use directive grammar with reference blocks. Exit: prompt is written and follows the relevant checklist.
-3. **Confirm** — Show the user the exact prompt, input images (if any), resolution, and aspect ratio. Ask for confirmation. Exit: user approves.
+3. **Confirm** — Show the user the exact prompt, input images (if any), model, resolution, and aspect ratio. Ask for confirmation. Exit: user approves.
 4. **Generate** — Run the script with confirmed parameters. Exit: images are saved and displayed.
 5. **Iterate** — Present results. Offer refinements (prompt tweaks, parameter changes, follow-up edits). Exit: user is satisfied or moves on.
 
@@ -32,7 +33,7 @@ When the user doesn't specify a location, save images to:
 ~/Documents/generated images/
 ```
 
-Every generated image gets a companion `.md` file with the prompt used (e.g., `logo.png` → `logo.md`).
+Every generated image gets a companion `.md` file with the prompt and model used (e.g., `logo.png` → `logo.md`).
 
 When gathering parameters (aspect ratio, resolution), offer the option to specify a custom output location.
 
@@ -52,6 +53,18 @@ Good: "A fluffy orange tabby sits regally on a velvet cushion, wearing an ornate
 
 A useful formula: `[Subject] doing [Action] in [Context]. [Camera/Composition]. [Lighting]. [Style]. [Constraint].` Not every prompt needs every element — match detail to intent. If the user has a specific vision, be prescriptive (exact descriptions); if exploring, be open (general direction, let the model decide details). Ask if unclear.
 
+### Advanced Prompting Techniques
+
+**Hyper-specificity**: Be precise about quantities, positions, and attributes. "Three red apples arranged in a triangle on a wooden table" outperforms "some apples on a table." Every vague word is a degree of freedom the model fills arbitrarily.
+
+**Context and intent**: State the purpose. "A hero image for a coffee brand landing page" produces different results than "a photo of coffee" even if the visual subject is the same, because intent shapes composition, mood, and framing.
+
+**Step-by-step instructions**: For complex scenes, break the prompt into sequential directives. "Start with a wide desert landscape. Place a lone figure walking left-to-right in the lower third. Behind them, a massive sandstorm approaches from the right."
+
+**Semantic negative prompts**: State what to avoid using natural language. "No text overlays, no watermarks, no humans in the background" is more effective than trying to describe only what you want when exclusions matter.
+
+**Camera control**: Specify shot type (extreme close-up, medium shot, aerial), lens (fisheye, telephoto), and camera angle (low angle, bird's eye, Dutch angle) to control framing precisely.
+
 Editing with reference images follows different principles — see [references/editing-guide.md](references/editing-guide.md).
 
 ---
@@ -60,7 +73,7 @@ Editing with reference images follows different principles — see [references/e
 
 Load the relevant reference during prompt crafting (workflow step 2):
 
-- [references/capability-patterns.md](references/capability-patterns.md) — mode-specific tips for photorealistic scenes, product photography, logos, stylized illustration, and grounding
+- [references/capability-patterns.md](references/capability-patterns.md) — mode-specific tips for photorealistic scenes, product photography, logos, stylized illustration, text rendering, and grounding
 - [references/editing-guide.md](references/editing-guide.md) — edit grammar, reference blocks, directive structure, image ordering, semantic masking, character consistency
 - [references/style-reference.md](references/style-reference.md) — named aesthetics lexicon (film stocks, cameras, studios, artists, movements)
 
@@ -74,39 +87,80 @@ Names invoke aesthetics directly — referencing "shot on Kodak Portra 400" prod
 
 ## Configuration
 
+### Model Selection
+
+| | Nano Banana (default) | Nano Banana Pro |
+|---|---|---|
+| Speed | Fast, high-volume | Slower, higher quality |
+| Resolutions | 0.5K, 1K, 2K, 4K | 1K, 2K, 4K |
+| Extra ratios | 1:4, 4:1, 1:8, 8:1 | — |
+| Thinking mode | Yes (minimal/low/medium/high) | No |
+| Image search grounding | Yes | No |
+| Max references | 14 | 11 (6 objects + 5 characters) |
+| Text rendering | Advanced | Standard |
+
+Default to Nano Banana for most requests. Use Nano Banana Pro when the user explicitly asks for maximum quality or when Nano Banana results need refinement.
+
 ### Aspect Ratios
-1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9
+
+**Both models**: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9
+**Nano Banana only**: 1:4, 4:1, 1:8, 8:1
 
 ### Resolutions
+- **0.5K** (~512px) — fast preview (Nano Banana only)
 - **1K** (~1024px) — default, fast
 - **2K** (~2048px) — high quality
 - **4K** (~4096px) — maximum detail
 
-**Defaults**: 1K resolution, batch 3, aspect ratio auto-detected from last reference image (or 1:1 if no images). Use 2K for higher quality requests, 4K only when high detail is explicitly needed (large prints, zoom-in).
+**Defaults**: 1K resolution, batch 1, aspect ratio auto-detected from last reference image (or 1:1 if no images). Use 0.5K for quick previews and iteration (Nano Banana only). Use 2K for higher quality requests, 4K only when high detail is explicitly needed.
+
+### Thinking Mode (Nano Banana only)
+
+Nano Banana supports controllable thinking levels that improve complex prompt interpretation:
+- **minimal** (default) — fastest, suitable for straightforward prompts
+- **low/medium** — balanced reasoning for moderately complex scenes
+- **high** — maximum reasoning for complex multi-element compositions, precise text rendering, or intricate spatial layouts
+
+Use `--thinking high` when the prompt involves precise spatial relationships, multiple text elements, or detailed composition requirements.
 
 ---
 
 ## Script Usage
 
-One unified script handles all modes: t2i, i2i, and multi-reference composition.
+One unified script handles all modes: t2i, i2i, and multi-reference composition. Nano Banana is the default model.
 
 ```bash
-# Text-to-image (t2i)
+# Text-to-image (t2i) — uses Nano Banana by default
 uv run ${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate.py --prompt "A serene mountain lake at dawn" --output landscape.png
+
+# Use Nano Banana Pro model
+uv run ${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate.py --prompt "A serene mountain lake at dawn" --output landscape.png --model pro
 
 # Image-to-image editing (i2i)
 uv run ${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate.py --prompt "Make it sunset colors" --input photo.png --output edited.png
 
-# Multi-reference composition (up to 14 images)
+# Multi-reference composition (up to 14 images with Nano Banana)
 uv run ${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate.py --prompt "Combine the cat from image 1 with the background from image 2" --input cat.png --input background.png --output composite.png
 
 # With options
 uv run ${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate.py --prompt "Logo for 'Acme Corp'" --output logo.png --aspect 1:1 --resolution 2K
 
-# With Google Search grounding
-uv run ${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate.py --prompt "Current weather in Tokyo visualized" --output weather.png --grounding
+# With Google Search grounding (web + image search)
+uv run ${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate.py --prompt "Current weather in Tokyo visualized" --output weather.png --grounding --image-grounding
 
-# Batch generation (up to 4 images, 2 parallel requests)
+# With thinking mode (Nano Banana only)
+uv run ${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate.py --prompt "Complex architectural blueprint" --output building.png --thinking high
+
+# Quick preview with 0.5K (Nano Banana only)
+uv run ${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate.py --prompt "A cat in space" --output preview.png --resolution 0.5K
+
+# JPEG output with quality control
+uv run ${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate.py --prompt "Product photo" --output product.jpg --format jpeg --quality 90
+
+# JSON output for agent consumption
+uv run ${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate.py --prompt "A cat" --output cat.png --json
+
+# Batch generation (up to 4 images)
 uv run ${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate.py --prompt "A cat in different poses" --output cat.png --batch 4
 # Outputs: cat-1.png, cat-2.png, cat-3.png, cat-4.png
 ```
@@ -118,10 +172,17 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate.py --prompt 
 | `--prompt` | `-p` | Image description or edit instruction (required) |
 | `--output` | `-o` | Output file path (required) |
 | `--input` | `-i` | Input image(s) for editing/composition (repeatable, up to 14) |
+| `--model` | `-m` | Model: nano-banana (default) or pro |
 | `--aspect` | `-a` | Aspect ratio (auto-detects from last reference image, or 1:1) |
-| `--resolution` | `-r` | Output resolution: 1K, 2K, or 4K (default: auto-detect or 1K) |
-| `--grounding` | `-g` | Enable Google Search grounding |
-| `--batch` | `-b` | Generate multiple variations: 1-4 (default: 1, runs 2 parallel max) |
+| `--resolution` | `-r` | Output resolution: 0.5K, 1K, 2K, or 4K (default: auto-detect or 1K) |
+| `--grounding` | `-g` | Enable Google Search web grounding |
+| `--image-grounding` | | Enable image search grounding (Nano Banana only, use with --grounding) |
+| `--thinking` | `-t` | Thinking level: minimal, low, medium, high (Nano Banana only) |
+| `--quality` | `-q` | Output compression quality 1-100 (JPEG only) |
+| `--format` | `-f` | Output format: png (default) or jpeg |
+| `--batch` | `-b` | Generate multiple variations: 1-4 (default: 1) |
+| `--json` | | Output results as JSON for agent consumption |
+| `--quiet` | | Suppress progress output (MEDIA lines still printed) |
 
 ### Auto-Resolution Detection
 
@@ -135,7 +196,7 @@ Override with explicit `--resolution` flag.
 ### Auto Aspect Ratio Detection
 
 When no `--aspect` flag is provided:
-- **With reference images**: Detects from the **last** input image (closest supported ratio)
+- **With reference images**: Detects from the **last** input image (closest supported ratio for the selected model — Nano Banana has more options)
 - **Without reference images (t2i)**: Defaults to 1:1
 
 This matches typical editing workflows where the last image is the canvas being edited.
@@ -153,6 +214,8 @@ Large input images (>2048px) are automatically resized before sending to the API
 - [ ] Camera/lighting details for photorealism?
 - [ ] Text in quotes, font style described?
 - [ ] Aspect ratio appropriate for use case?
+- [ ] Model choice appropriate? (Nano Banana default; Nano Banana Pro for max quality)
+- [ ] Thinking level set for complex prompts? (Nano Banana only)
 
 **Before editing (i2i / multi-reference):**
 - [ ] Reference block at start of prompt labeling each image's role?
@@ -160,3 +223,4 @@ Large input images (>2048px) are automatically resized before sending to the API
 - [ ] Each directive (replace/match/keep) is its own sentence?
 - [ ] Base image is last in `--input` list?
 - [ ] When extracting/transferring elements: explicitly named each element rather than generic "outfit/object from image X"?
+- [ ] Reference count within model limits? (Nano Banana: 14, Nano Banana Pro: 11)
