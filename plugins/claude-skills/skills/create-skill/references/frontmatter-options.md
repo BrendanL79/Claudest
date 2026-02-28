@@ -41,6 +41,8 @@ user-invocable: true                # Show in /command menu (default true)
 disable-model-invocation: true      # Prevent programmatic invocation (commands only)
 argument-hint: "[arg1] [arg2]"      # Document expected arguments; quote if value contains [...]
 ---
+
+**`argument-hint` quoting rule:** Values containing `[...]` must be quoted (`"[arg]"`), because YAML treats unquoted `[` as the start of a flow sequence. Values using only `<...>` do not need quoting.
 ```
 
 ---

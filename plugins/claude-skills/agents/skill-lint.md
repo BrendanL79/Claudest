@@ -81,7 +81,7 @@ verbosity, anatomy completeness, and agentic/deterministic split. Effectiveness 
 
    The 7 dimensions are:
    - D1: Frontmatter quality (person, scalar type, trigger phrases, token density, coverage, trigger accuracy, token budget, negative triggers)
-   - D2: Execution modifiers (model, context, tools, argument-hint mismatches)
+   - D2: Execution modifiers (model, context, tools, argument-hint mismatches, argument-hint quoting — unquoted `[...]` breaks YAML parsing)
    - D3: Intensional vs extensional instruction (rules stated with reasoning vs examples-only)
    - D4: Agentic vs deterministic split (script opportunities, vague references, inlined code)
    - D5: Verbosity and context efficiency (restated headers, hedging, body routing guidance, depth)
