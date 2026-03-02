@@ -103,17 +103,15 @@ This is the critical stage. Never write without explicit approval.
 2. **Check for duplicates** — scan target files for existing content covering the same concept. If already captured (even in different words), skip it and note the duplicate.
 
 3. **Present the proposal** — for each learning, use this format:
-
-   ```
+```
    ### Learning: <one-line summary>
    **Target:** <file path> → <section name>
    **Rationale:** <why this layer, why this section>
-
+	
    ```diff
    + <the exact line(s) to add>
    ```
-   ```
-
+```
 4. **Layer 0 extra gate** — if any learning targets `~/.claude/CLAUDE.md`, add an explicit warning: "This will be added to your global instructions loaded in every session across all projects. Confirm?"
 
 5. **MEMORY.md line check** — read the target MEMORY.md and count lines. If line count exceeds 170, warn that content beyond line 200 is truncated by auto-memory and suggest moving lower-priority sections to topic files (Layer 3) before adding new content.
@@ -168,3 +166,4 @@ Every candidate must pass these filters before being proposed:
 - Content already captured in the target file (semantic dedup)
 - Temporary state or session-specific context
 - Speculative conclusions not verified against the codebase
+

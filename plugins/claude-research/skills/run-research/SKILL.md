@@ -165,9 +165,9 @@ brave-cli search "{TOPIC} github OR dev.to OR medium.com" -n 5 --freshness month
 **If `BRAVE=missing`** — use Claude's `WebSearch` tool. Run 2-3 queries based on QUERY_TYPE:
 
 - `RECOMMENDATIONS` → `best {TOPIC}`, `{TOPIC} comparison`
-- `NEWS` → `{TOPIC} news 2025`, `{TOPIC} announcement`
+- `NEWS` → `{TOPIC} news 2026`, `{TOPIC} announcement`
 - `PROMPTING` → `{TOPIC} prompts examples`, `{TOPIC} techniques`
-- `GENERAL` → `{TOPIC} 2025`, `{TOPIC} discussion`
+- `GENERAL` → `{TOPIC} 2026`, `{TOPIC} discussion`
 
 Exclude: reddit.com, x.com, twitter.com (already covered above). Target: blogs, docs, GitHub, dev.to, news sites.
 
