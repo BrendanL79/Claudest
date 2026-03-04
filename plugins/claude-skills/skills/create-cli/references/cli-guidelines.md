@@ -249,12 +249,11 @@ application of existing conventions with agent consumption in mind.
 - List commands in `--json` mode: NDJSON (one object per line) — enables streaming and `jq`
   piping without buffering. For paginated results with metadata, a JSON object with an
   `items` array is acceptable.
-- Suppress ANSI codes, progress indicators, and decorative output when `--json` is active
-  or when stdout is not a TTY.
+- Suppress ANSI codes, progress indicators, and decorative output when `--json` is active.
 
 ### Structured errors
 
-- Error objects on stderr in non-TTY mode:
+- Error objects on stderr when `--json` is active:
   `{"error": "<snake_case_code>", "message": "<sentence>", "hint": "<exact CLI invocation or null>"}`
 - `hint` must be an executable command the agent can run directly — not a prose suggestion.
   Good: `"hint": "snapr list --json"`. Bad: `"hint": "Check available snapshots first."`.
