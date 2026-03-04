@@ -42,7 +42,7 @@ snapr delete   <snapshot-id> [--force]
 | `--version` | bool | — | Print version to stdout, exit 0 |
 | `-q, --quiet` | bool | false | Suppress progress output; errors still go to stderr |
 | `-v, --verbose` | bool | false | Emit debug output to stderr |
-| `--human` | bool | false | Force human-readable output even when piped |
+| `--json` | bool | false | Structured JSON output (NDJSON for list commands) |
 | `--no-color` | bool | false | Disable ANSI color; also respected via `NO_COLOR` env var |
 | `--config <path>` | string | `~/.snapr/config.toml` | Path to config file |
 
@@ -57,17 +57,15 @@ Subcommand-specific flags:
 
 ## 6. I/O contract
 
-**Output mode (TTY auto-detection):** When stdout is a TTY, emit human-readable colored
-output. When stdout is piped or non-TTY (always the case for agent callers), emit structured
-JSON automatically — no flag required. `--human` forces human output; `--json` is accepted
-as an alias for non-TTY mode.
+**Output mode:** Default is human-readable text. `--json` gives structured JSON. Agents
+pass `--json` explicitly — no TTY sniffing, no surprises.
 
-**stdout:** Snapshot objects, list output (NDJSON in non-TTY — one JSON object per line),
-version string. `snapshot` always returns the created snapshot's ID and metadata fields on
-stdout, even in quiet mode, so callers don't need a follow-up `list` call.
+**stdout:** Snapshot objects, list output (NDJSON in `--json` mode — one JSON object per
+line), version string. `snapshot` always returns the created snapshot's ID and metadata
+fields on stdout, even in quiet mode, so callers don't need a follow-up `list` call.
 
-**stderr:** Progress messages, verbose debug, warnings. In non-TTY mode, errors are emitted
-as a structured JSON object (see §7). Never mixes with stdout.
+**stderr:** Progress messages, verbose debug, warnings. When `--json` is active, errors are
+emitted as a structured JSON object (see §7). Never mixes with stdout.
 
 **stdin:** `restore` accepts `-` as `<target>` to pipe restored content to stdout
 (single-file snapshots only).
@@ -97,7 +95,7 @@ or `null` if no recovery action applies).
 | Variable | Overrides | Notes |
 |----------|-----------|-------|
 | `SNAPR_DIR` | default snapshot dir (`~/.snapr/snapshots/`) | Set in CI to a shared volume |
-| `SNAPR_CONFIG` | `--config` flag | Lower precedence than the flag |
+| `SNAPR_CONFIG` | default config path | Fallback for `--config` flag; flag takes precedence when both are set |
 | `NO_COLOR` | `--no-color` | Standard; respected automatically |
 
 **Config file** (`~/.snapr/config.toml`; project-local `.snapr.toml` in CWD also checked):
@@ -114,12 +112,12 @@ config (`~/.snapr/config.toml`) > built-in defaults.
 ## 9. Examples
 
 ```bash
-# Create a snapshot — stdout returns full object; agent can read ID without a follow-up call
-snapr snapshot ./src --name "before-refactor" --tag "dev"
-# non-TTY output: {"id":"abc123","name":"before-refactor","tag":"dev","path":"./src","created_at":"2026-02-23T14:00:00Z"}
+# Create a snapshot — --json returns full object; agent can read ID without a follow-up call
+snapr snapshot ./src --name "before-refactor" --tag "dev" --json
+# {"id":"abc123","name":"before-refactor","tag":"dev","path":"./src","created_at":"2026-02-23T14:00:00Z"}
 
-# List all snapshots — NDJSON in non-TTY mode, one object per line; pipeable without buffering
-snapr list --tag "dev" | jq -r '.id'
+# List all snapshots — NDJSON in --json mode, one object per line; pipeable without buffering
+snapr list --tag "dev" --json | jq -r '.id'
 # abc123
 # def456
 
@@ -127,10 +125,10 @@ snapr list --tag "dev" | jq -r '.id'
 snapr restore abc123 ./src --force --quiet
 # exit 0 on success; exit 3 if target non-empty (agent checks exit code, not stderr)
 
-# Preview a restore — dry-run + non-TTY shows JSON diff of what would change
-snapr restore abc123 ./src --dry-run
+# Preview a restore — dry-run shows what would change
+snapr restore abc123 ./src --dry-run --json
 
 # Agent error recovery pattern — hint field contains the exact next command to run
-snapr restore xyz999 ./src --force
+snapr restore xyz999 ./src --force --json
 # stderr: {"error":"not_found","message":"Snapshot 'xyz999' does not exist.","hint":"snapr list --json"}
 ```

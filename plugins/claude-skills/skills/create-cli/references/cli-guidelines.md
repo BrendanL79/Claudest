@@ -243,12 +243,14 @@ application of existing conventions with agent consumption in mind.
 
 ### Output defaults
 
-- Detect TTY: emit structured JSON when stdout is not a TTY (agents are always non-TTY);
-  pretty/human output when stdout is a TTY. No flag required for the common case.
-- List commands: NDJSON (one object per line) in non-TTY mode, not a JSON array — enables
-  streaming and `jq` piping without buffering the full output.
-- Suppress ANSI codes, progress indicators, and decorative output in non-TTY mode.
-- `--json` and `--human` remain available as explicit overrides.
+- Default output is human-readable text. `--json` gives structured JSON. Explicit is better
+  than implicit — no TTY sniffing, no surprises. Agents pass `--json`; humans get readable
+  output without any flags.
+- List commands in `--json` mode: NDJSON (one object per line) — enables streaming and `jq`
+  piping without buffering. For paginated results with metadata, a JSON object with an
+  `items` array is acceptable.
+- Suppress ANSI codes, progress indicators, and decorative output when `--json` is active
+  or when stdout is not a TTY.
 
 ### Structured errors
 
@@ -261,8 +263,10 @@ application of existing conventions with agent consumption in mind.
 
 - Compound output: `create` returns the new resource's ID and key fields; `delete` echoes
   what was removed. Agents should not need a follow-up call to discover the result.
-- Rich non-TTY defaults: in JSON mode, return full objects. Include enough context that a
+- Rich JSON defaults: in `--json` mode, return full objects. Include enough context that a
   second call is rarely needed.
+- Bounded lists: default to a safe limit (e.g., 50 items) with `--limit` to adjust. In JSON
+  mode, include `has_more` (bool) and optionally `next_cursor` for keyset pagination.
 - Consistent patterns: same flag names across subcommands for the same concept. Agents learn
   the pattern once and apply it everywhere.
 - Idempotency: document which commands are safe to repeat. Agents rely on idempotency for
