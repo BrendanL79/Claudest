@@ -29,10 +29,10 @@ To enable auto-updates, run `/plugin`, go to the Marketplaces tab, and toggle au
 
 | Plugin | Version | Skills |
 |--------|---------|--------|
-| [claude-memory](#claude-memory) | `0.7.7` | recall-conversations · extract-learnings |
-| [claude-research](#claude-research) | `0.1.4` | run-research · search-youtube |
-| [claude-coding](#claude-coding) | `0.1.11` | commit · push-pr · clean-branches · update-claudemd · make-readme · make-changelog · update-readme |
-| [claude-skills](#claude-skills) | `0.2.1` | create-skill · repair-skill · repair-agent · improve-skill · create-cli · create-agent |
+| [claude-memory](#claude-memory) | `0.7.8` | recall-conversations · extract-learnings |
+| [claude-research](#claude-research) | `0.1.5` | run-research · search-youtube |
+| [claude-coding](#claude-coding) | `0.1.13` | commit · push-pr · clean-branches · update-claudemd · make-readme · make-changelog · update-readme |
+| [claude-skills](#claude-skills) | `0.2.3` | create-skill · repair-skill · repair-agent · improve-skill · create-cli · create-agent |
 | [claude-thinking](#claude-thinking) | `0.1.5` | brainstorm |
 | [claude-content](#claude-content) | `0.3.1` | generate-image · compress-video · convert-video · make-gif · share-social · extract-audio |
 | [claude-utilities](#claude-utilities) | `0.1.7` | convert-to-markdown |
@@ -42,7 +42,7 @@ To enable auto-updates, run `/plugin`, go to the Marketplaces tab, and toggle au
 
 <a id="claude-memory"></a>
 
-### 🧠 claude-memory &nbsp; ![v0.7.7](https://img.shields.io/badge/v0.7.7-blue?style=flat-square)
+### 🧠 claude-memory &nbsp; ![v0.7.8](https://img.shields.io/badge/v0.7.8-blue?style=flat-square)
 
 Conversation memory for Claude Code. Recall what happened yesterday, last week, or three weeks ago.
 
@@ -66,7 +66,7 @@ For the full story behind the architecture: [What I Learned Building a Memory Sy
 
 <a id="claude-research"></a>
 
-### 🔍 claude-research &nbsp; ![v0.1.4](https://img.shields.io/badge/v0.1.4-blue?style=flat-square)
+### 🔍 claude-research &nbsp; ![v0.1.5](https://img.shields.io/badge/v0.1.5-blue?style=flat-square)
 
 Cross-platform research skills for Claude Code. Two complementary tools: a multi-source deep research pipeline and a standalone YouTube research toolkit.
 
@@ -93,7 +93,7 @@ brew install bird            # X / Twitter
 
 <a id="claude-coding"></a>
 
-### 💻 claude-coding &nbsp; ![v0.1.11](https://img.shields.io/badge/v0.1.11-blue?style=flat-square)
+### 💻 claude-coding &nbsp; ![v0.1.13](https://img.shields.io/badge/v0.1.13-blue?style=flat-square)
 
 Coding workflow skills for Claude Code. Seven skills covering the commit loop, project maintenance, and documentation.
 
@@ -121,7 +121,7 @@ Every coding session involves the same decisions: what belongs in one commit vs 
 
 <a id="claude-skills"></a>
 
-### ✍️ claude-skills &nbsp; ![v0.2.1](https://img.shields.io/badge/v0.2.1-blue?style=flat-square)
+### ✍️ claude-skills &nbsp; ![v0.2.3](https://img.shields.io/badge/v0.2.3-blue?style=flat-square)
 
 Skill authoring tools for Claude Code. Six complementary skills that cover the full lifecycle: generate skills, generate agents, audit, improve, repair agents, and CLI design.
 
@@ -137,7 +137,7 @@ Writing a good skill is harder than it looks. The description has to route corre
 
 `repair-agent` reads an existing Claude Code agent file and audits it against the same rubric as `repair-skill` but applied to agent-specific concerns: system prompt quality, tool access scope, context isolation correctness, triggering conditions, and example block completeness. Returns a structured report with violations, gaps, and applied fixes.
 
-`create-cli` designs a complete CLI surface before implementation — flags, subcommands, output format, error schema, and configuration — through a structured interview. Defaults to an agent-aware baseline (TTY auto-detection, structured error objects with executable hints, NDJSON for list commands) that serves both agent callers and humans at a terminal without extra flags.
+`create-cli` designs a complete CLI surface before implementation — flags, subcommands, output format, error schema, and configuration — through a structured interview. Defaults to an agent-aware baseline (explicit `--json`/`--markdown`/`--text` output mode flags, structured error objects with executable hints, NDJSON for list commands) that serves both agent callers and humans at a terminal without ambiguity.
 
 All six skills share a `references/` library: a skill anatomy gold standard, a complete frontmatter options catalog with tool selection framework, a script patterns reference with five signal patterns for recognizing CLI candidates, and agent-aware CLI design guidelines. A `skill-lint` agent runs automatically after `create-skill` and `improve-skill` to validate structural quality — checking discovery trigger coverage, edge case handling, description quality, and five other audit dimensions — before the skill is delivered.
 

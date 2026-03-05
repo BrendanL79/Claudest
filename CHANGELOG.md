@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2026-03-05]
+
+### Added
+- Add haiku+AskUserQuestion incompatibility constraint to create-skill and repair-skill frontmatter reference docs (claude-skills 0.2.3)
+- Add YAML list format constraint for `allowed-tools` to frontmatter reference docs (claude-skills 0.2.3)
+- Add `find-candidates.sh` script to clean-branches for isolated candidate detection (claude-coding 0.1.13)
+
+### Fixed
+- Correct `allowed-tools` frontmatter to use YAML block sequence in clean-branches, make-readme, and improve-skill (claude-coding 0.1.13, claude-skills 0.2.3)
+- Remove `model: haiku` from clean-branches skill — incompatible with AskUserQuestion (claude-coding 0.1.13)
+
+## [2026-03-04]
+
+### Added
+- Add explicit output modes (`--json`, `--markdown`, `--text` flags) to create-cli skill, replacing TTY auto-detection (claude-skills 0.2.2)
+
+### Fixed
+- Make push-pr branch management non-destructive: use origin-based comparisons and avoid deleting local branches (claude-coding 0.1.12)
+- Align create-cli structured error output with explicit output mode contract (claude-skills 0.2.2)
+
+## [2026-03-02]
+
+### Fixed
+- Update skill formatting and year references in recall-conversations and run-research (claude-memory 0.7.8, claude-research 0.1.5)
+
 ## [2026-02-28]
 
 ### Added
