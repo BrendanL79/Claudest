@@ -36,6 +36,8 @@ Audit rule: `opus` is only justified when the task genuinely requires deep reaso
 `sonnet` would struggle with. Most skills should omit `model:` entirely and inherit.
 `haiku` is underused — prefer it for lookup-heavy, low-judgment steps.
 
+**Constraint:** Never set `model: haiku` on skills that use `AskUserQuestion`. Haiku cannot reliably populate the nested AskUserQuestion schema (questions array > options with label + description > header + multiSelect), causing questions to render empty in the UI. If a skill needs user decisions, it must use at least `sonnet` or inherit. *Critical if violated.*
+
 ### `context` (enum)
 
 | Value | When to use |
@@ -65,6 +67,8 @@ Defaults to `general-purpose` when omitted.
 
 Restricts which tools the skill can use. Default is unrestricted. Specifying this list
 is a security and scope constraint — use it to limit blast radius for sensitive skills.
+
+**YAML format constraint:** `allowed-tools` must be a YAML list — either a block sequence (`- Tool`) or a flow sequence (`[Tool, Tool]`). A comma-separated string on one line (`allowed-tools: Read, Glob, Edit`) parses as the scalar string `"Read, Glob, Edit"`, not a 3-element list. Tools may not be recognized by the runtime. *Critical if wrong.*
 
 **Complete tool list:**
 

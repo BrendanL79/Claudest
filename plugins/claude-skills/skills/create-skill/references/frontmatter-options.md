@@ -94,7 +94,7 @@ Use these when the default behavior isn't sufficient:
 
 - **`agent: [type]`** — Optional. Route to a specialized agent. Examples: `Explore` for codebase search, `Plan` for architecture decisions, or custom agents you've defined. Only valid with `context: fork`.
 
-- **`model: [level]`** — Override the model. Valid values: `haiku` (fast, cheap, simple tasks), `sonnet` (balanced default), `opus` (complex reasoning). Omit to inherit from the current conversation.
+- **`model: [level]`** — Override the model. Valid values: `haiku` (fast, cheap, simple tasks), `sonnet` (balanced default), `opus` (complex reasoning). Omit to inherit from the current conversation. **Constraint:** never use `haiku` on skills with `AskUserQuestion` — Haiku cannot reliably populate the nested question schema, causing questions to render empty in the UI.
 
 - **`hooks`** — Run scripts before/after tool use, scoped to this skill's lifecycle. Useful for validation, logging, or side effects.
 
@@ -107,6 +107,8 @@ Use these when the default behavior isn't sufficient:
 ## Tool Selection
 
 Default generous, restrict only when needed. The principle: restrict tools that have destructive or side-effect potential, not tools that are read-only or purely generative.
+
+**YAML format:** `allowed-tools` must be a YAML list — block sequence (`- Tool`) or flow sequence (`[Tool, Tool]`). Never comma-separated on one line (`allowed-tools: Read, Glob, Edit`) — YAML parses that as a single string, not a list.
 
 | Tier | Tools | Why |
 |------|-------|-----|

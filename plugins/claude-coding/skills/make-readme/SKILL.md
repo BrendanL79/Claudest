@@ -5,7 +5,11 @@ description: >
   "generate a README", "make a readme", "write a README for my project",
   "need a README", "add a README", "document my project", "set up project docs",
   "readme with badges".
-allowed-tools: AskUserQuestion, Write, Read, Glob
+allowed-tools:
+  - AskUserQuestion
+  - Write
+  - Read
+  - Glob
 ---
 
 # README Maker

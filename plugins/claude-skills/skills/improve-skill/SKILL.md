@@ -8,7 +8,15 @@ description: >
   wants to improve skill effectiveness rather than structural correctness.
 argument-hint: <path-to-skill-directory-or-SKILL.md>
 model: opus
-allowed-tools: Read, Glob, Edit, Write, WebSearch, WebFetch, Task, AskUserQuestion
+allowed-tools:
+  - Read
+  - Glob
+  - Edit
+  - Write
+  - WebSearch
+  - WebFetch
+  - Task
+  - AskUserQuestion
 ---
 
 # Skill Improver
