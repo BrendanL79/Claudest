@@ -32,7 +32,7 @@ Ask, then proceed with best-guess defaults if user is unsure:
 - Command name + one-sentence purpose.
 - Primary consumer: agent/LLM, human at a terminal, scripted automation, or mixed.
 - Input sources: args vs stdin; files vs URLs; secrets (never via flags).
-- Output contract: human text, `--json`, `--plain`, exit codes.
+- Output contract: human text by default, `--json` for structured output, exit codes.
 - Interactivity: prompts allowed? need `--no-input`? confirmations for destructive ops?
 - Config model: flags/env/config-file; precedence; XDG vs repo-local.
 - Language & distribution: ask for the user's preferred implementation language, or offer to
@@ -46,16 +46,16 @@ Proceed when answers are confirmed or user is unsure — use best-guess defaults
 
 ## Phase 3 — Conventions
 
-Apply these unless the user says otherwise:
+Apply these unless the user says otherwise. If primary consumer is human-only, the Errors JSON schema and Reduce tool calls subsections are optional — apply them only if the user wants script-friendliness.
 
 ### Output
-- Detect TTY: pretty/colored output when stdout is a TTY; structured JSON when piped/non-TTY (agents are always non-TTY). `--json` and `--human` available as explicit overrides.
-- List commands: NDJSON (one JSON object per line) in non-TTY mode, not a JSON array — enables streaming and `jq` piping without buffering.
+- Default output is human-readable text. `--json` gives structured JSON. Explicit is better than implicit — no TTY sniffing, no surprises.
+- List commands in `--json` mode use NDJSON (one JSON object per line) — enables streaming and `jq` piping without buffering. For paginated results with metadata, a JSON object with an `items` array is acceptable.
 - Primary data to stdout; diagnostics/errors to stderr.
-- Suppress ANSI codes, progress spinners, and decorative output in non-TTY mode.
+- Suppress ANSI codes, progress spinners, and decorative output when `--json` is passed or when stdout is not a TTY.
 
 ### Errors
-- Non-TTY error object on stderr: `{"error": "<snake_case_code>", "message": "...", "hint": "<exact CLI invocation or null>"}` — so agent callers can route recovery logic without parsing free-text stderr. The `hint` field must be an executable command, not prose.
+- When `--json` is active, emit error objects on stderr: `{"error": "<snake_case_code>", "message": "...", "hint": "<exact CLI invocation or null>"}` — so agent callers can route recovery logic without parsing free-text stderr. The `hint` field must be an executable command, not prose.
 - Exit codes: `0` success, `1` runtime error, `2` invalid usage; add command-specific codes only when genuinely useful.
 
 ### Flags
@@ -69,7 +69,8 @@ Apply these unless the user says otherwise:
 
 ### Reduce tool calls
 - Compound output: operations return enough data to avoid a follow-up call. `create` returns the new resource's ID and key fields. `delete` echoes what was removed.
-- Rich non-TTY defaults: in JSON mode, return full objects not just IDs.
+- Rich JSON defaults: in `--json` mode, return full objects not just IDs.
+- Bounded lists: list commands should default to a safe limit (e.g., 50 items) with `--limit` to adjust. In JSON mode, include `has_more` (bool) and optionally `next_cursor` for keyset pagination. Unbounded output wastes tokens and risks context overflow for agent callers.
 - Idempotent by default: where possible, commands are safe to repeat; document preconditions explicitly — agents rely on safe retries for error recovery without human intervention.
 
 For deeper context on the reasoning behind these conventions, read `${CLAUDE_PLUGIN_ROOT}/skills/create-cli/references/agent-aware-design.md`.
@@ -78,12 +79,14 @@ Apply all conventions, then proceed to Phase 4.
 
 ## Phase 4 — Deliver
 
-For audits of existing CLIs, produce a gap report (violations + recommended changes) rather than a full spec. For new designs, produce a compact spec the user can implement. Include all relevant sections:
+For audits of existing CLIs, produce a gap report organized by severity: Breaking (requires API change), Major (agent-breaking or convention violation), Minor (cosmetic/polish). Each finding: current behavior, convention violated, recommended fix with migration risk (none/low/breaking).
+
+For new designs, produce a compact spec the user can implement. Include all relevant sections:
 
 - Command tree + USAGE synopsis.
 - Args/flags table (types, defaults, required/optional, examples).
 - Subcommand semantics (what each does; idempotence; state changes).
-- Output rules: stdout vs stderr; TTY detection; `--json`/`--plain`; `--quiet`/`--verbose`.
+- Output rules: stdout vs stderr; `--json` for structured output; `--quiet`/`--verbose`.
 - Error + exit code map (top failure modes).
 - Safety rules: `--dry-run`, confirmations, `--force`, `--no-input`.
 - Config/env rules + precedence (flags > env > project config > user config > system).
@@ -105,7 +108,7 @@ Use this skeleton, dropping irrelevant sections:
    - `-h, --help`
    - `--version`
    - `-q, --quiet` / `-v, --verbose` (define exactly)
-   - `--human` (force human output when piped) / `--json` (force JSON when TTY) — if TTY auto-detection applies
+   - `--json` (structured JSON output; NDJSON for list commands)
 6. **I/O contract**:
    - stdout:
    - stderr:

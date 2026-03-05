@@ -18,13 +18,14 @@ exit codes. What they need is for those surfaces to be precise and low-noise. Th
 not teach a different CLI paradigm; it should teach authors to be rigorous about the conventions
 they already know, and to treat the agent as a peer consumer alongside the human.
 
-### TTY Auto-Detection as the Unifying Mechanism
+### Explicit Output Modes
 
-The output default should be: pretty/human when stdout is a TTY, structured JSON when
-piped/non-TTY (which agents always are). This serves both audiences without any required flags.
-`--json` and `--human` remain available as explicit overrides. This replaces the current
-convention of "add `--json` as an option" — instead, JSON is the automatic default for any
-non-interactive caller, including agents.
+Explicit is better than implicit. The output default is human-readable text. `--json` gives
+structured JSON. No TTY sniffing, no surprises. Agents pass `--json` — one extra token, zero
+ambiguity. This avoids the PTY trap (some agent runners allocate pseudo-terminals, fooling
+`isatty()`) and works identically across platforms, CI environments, and terminal emulators.
+List commands in `--json` mode use NDJSON (one object per line) for streaming. For paginated
+results with metadata, a JSON object with an `items` array is acceptable.
 
 ### Reduce Tool Calls Through CLI Design
 
@@ -34,7 +35,7 @@ Three patterns reduce the number of Bash invocations an agent needs:
   returns the created resource's ID and key fields on stdout. `delete` echoes what was deleted.
   `list` returns full objects, not just IDs, in JSON mode.
 
-- **Rich defaults:** In non-TTY mode, include enough context in a single response that the
+- **Rich defaults:** In `--json` mode, include enough context in a single response that the
   agent rarely needs to call again. Avoid outputs that are "half the answer."
 
 - **Predictable behavior:** Idempotent commands, clear preconditions, consistent flag behavior
@@ -84,25 +85,24 @@ in a single invocation rather than one-pattern-per-line.
 
 ## Decisions & Positions
 
-- TTY auto-detection is the output mechanism. `--json` is an explicit override, not the
-  primary agent affordance.
+- Explicit output modes: human-readable by default, `--json` for structured output. No TTY
+  auto-detection — explicit is better than implicit.
 - Phase 3 of the skill should be rewritten from scratch as unified "CLI Conventions" — not
   "human norms + agent add-on."
 - `cli-guidelines.md` should be extended with an "Agent Ergonomics" section (our opinionated
   fork of clig.dev, not a replacement of it).
-- The snapr example should be updated to demonstrate all agent-aware patterns: TTY detection,
+- The snapr example should demonstrate all agent-aware patterns: explicit `--json` output,
   structured errors with executable hints, compound output, NDJSON for list commands.
 - Flag design stays natural language — no formal schemas. Consistency and precision in the
   spec is sufficient; agents infer well from well-written docs.
 
-## Open Questions
+## Resolved Decisions
 
-- Should NDJSON (one object per line) be the recommended list format, or should it remain
-  a suggestion? NDJSON is strictly more useful for agents but breaks `JSON.parse()` without
-  a line-by-line reader.
-- Should the error schema require `hint` to be a fully executable command (strict), or allow
-  it to be any actionable string (flexible)? Strict is more useful for agents; flexible is
-  easier for authors to comply with.
+- NDJSON is the default list format in `--json` mode. It's strictly more useful for agents
+  and `jq` piping. Exception: paginated results with top-level metadata use a JSON object
+  with an `items` array.
+- The error schema requires `hint` to be a fully executable command (strict). An agent can
+  run the hint directly without a reasoning step. `null` when no recovery action applies.
 
 ## Constraints & Boundaries
 
