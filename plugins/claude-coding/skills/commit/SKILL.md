@@ -92,7 +92,7 @@ Use conventional commit format:
 - NO AI attribution
 - NO emojis
 
-### 6. Push (if requested)
+### 6. Push (only if requested)
 
 If user mentions "push" or arguments contain "push", run `git push`. If push fails, report the error and stop — do not retry or force-push.
 
