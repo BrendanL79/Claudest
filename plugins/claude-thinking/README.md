@@ -39,6 +39,17 @@ Output document: technical/coding topics land at `./[topic-slug]-spec.md` in the
 
 Runs on: Claude Opus. Tools: Read, Write, AskUserQuestion.
 
+## Roadmap
+
+Planned skills tracked in [`docs/skill-ideas.md`](docs/skill-ideas.md):
+
+| Skill | Description |
+|-------|-------------|
+| decision-journal | Structured decision logging with revisitation and predicted-vs-actual tracking |
+| rubber-duck | Explain-your-code dialogue that surfaces implicit assumptions and hidden complexity |
+| pre-mortem | Prospective hindsight analysis — work backwards from failure to identify risks |
+| steelman | Build the strongest counter-argument to stress-test your own position |
+
 ## License
 
-MIT
+MIT — see [LICENSE](../../LICENSE) if present, otherwise standard MIT terms apply.

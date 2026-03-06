@@ -26,3 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fix YAML frontmatter issues across `clean-branches` and other skills
 - Fix script path references in commit skill after directory restructuring
+- Fix non-destructive branch management and use origin-based comparisons in `push-pr` (v0.1.12)
+- Fix Bash tool scoping and add `context:fork` to `update-readme`
+- Fix YAML frontmatter and add haiku model constraint with `AskUserQuestion` guard across skills

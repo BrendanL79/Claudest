@@ -1,5 +1,7 @@
 # claude-research
 
+![v0.1.5](https://img.shields.io/badge/v0.1.5-blue?style=flat-square)
+
 Cross-platform research skills for Claude Code.
 
 ## Installation

@@ -2,6 +2,43 @@
 
 All notable changes to the claude-memory plugin are documented here.
 
+## 0.7.8 - 2026-03-02
+
+### Fixed
+
+- Correct skill YAML frontmatter formatting and update year in skill headers
+
+## 0.7.7 - 2026-02-23
+
+### Changed
+
+- Refresh README with security hardening details and `/manage-memory` command documentation
+
+## 0.7.6 - 2026-02-23
+
+### Changed
+
+- Rename skills and command to verb-first convention: `past-conversations` → `recall-conversations`, `claude-memory` command → `manage-memory`
+
+## 0.7.5 - 2026-02-22
+
+### Changed
+
+- Fix extract-learnings skill description framing and reorder content for clarity
+
+## 0.7.4 - 2026-02-22
+
+### Fixed
+
+- Repair extract-learnings skill per audit findings (broken trigger phrases, incorrect script references)
+
+## 0.7.3 - 2026-02-22
+
+### Fixed
+
+- Repair recall-conversations skill and extract external reference links
+- Add `keywords` field to plugin.json
+
 ## 0.7.2
 
 Fix foreign key constraint crash on reimport, add versioned data migrations via `PRAGMA user_version`, and fix missing FK pragma after schema migration reconnect.

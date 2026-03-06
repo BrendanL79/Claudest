@@ -38,7 +38,7 @@
     {
       "name": "claude-thinking",
       "description": "Structured thinking tools: interviews, decision frameworks, and reasoning aids",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "source": "./plugins/claude-thinking"
     },
     {
@@ -50,7 +50,7 @@
     {
       "name": "claude-claw",
       "description": "OpenClaw tools: advisory, troubleshooting, and skill building for OpenClaw",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "source": "./plugins/claude-claw"
     }
   ]
