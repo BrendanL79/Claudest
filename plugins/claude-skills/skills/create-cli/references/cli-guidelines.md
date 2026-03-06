@@ -239,7 +239,14 @@ This is a practical rubric for designing CLI interfaces (args/flags/subcommands/
 These guidelines extend the human-first philosophy for tools where the primary caller is an
 AI agent (LLM-based coding assistant, automated pipeline, etc.). Agents are trained on
 standard CLI conventions and will use them — the goal is not a new interface but rigorous
-application of existing conventions with agent consumption in mind.
+application of existing conventions with agent consumption in mind. The approach is
+agent-aware, not agent-first: three pillars are token-efficient output, fewer tool calls
+through good UX, and structured errors that enable programmatic recovery.
+
+This is not a formal schema spec (no OpenAPI/JSON Schema for CLI interfaces) — principles
+and strong conventions, not machine-readable contracts. The goal is fewer tool calls, not
+shortest possible output; rich compound output often uses more tokens per call but fewer
+calls total.
 
 ### Output defaults
 
@@ -277,6 +284,14 @@ application of existing conventions with agent consumption in mind.
   surface area without nested help-diving.
 - The spec document (not `--help`) is the primary agent reference when the tool is used in a
   skill or CLAUDE.md context. Design it to be read by a model, not just by a person.
+
+### Spec compactness
+
+The CLI spec produced by this skill typically lives inside a skill body or as an embedded
+reference block, not as a standalone file in the user's repo. This means the spec must be
+compact enough to fit in an agent's context budget. Redundant sections should be omitted
+(not just marked optional), and examples should be dense — demonstrate multiple patterns
+in a single invocation rather than one-pattern-per-line.
 
 ## Authors
 

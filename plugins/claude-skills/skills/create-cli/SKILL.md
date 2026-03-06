@@ -10,6 +10,10 @@ argument-hint: "[tool-name and one-line description]"
 allowed-tools:
   - AskUserQuestion
   - Read
+  - Glob
+  - Grep
+  - Bash
+  - Write
 ---
 
 # Create CLI
@@ -18,14 +22,17 @@ Design CLI surface area (syntax + behavior), agent-aware, human-friendly.
 
 ## Phase 1 — Prepare
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/create-cli/references/cli-guidelines.md` and
-`${CLAUDE_PLUGIN_ROOT}/skills/create-cli/references/language-selection.md`.
-Apply cli-guidelines.md as the default CLI rubric; use language-selection.md during Phase 2
-to inform the language recommendation.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/create-cli/references/cli-guidelines.md`. Apply it as the default CLI rubric, including the Agent Ergonomics section.
 
-Proceed when both files are loaded.
+For new CLI designs, also read `${CLAUDE_PLUGIN_ROOT}/skills/create-cli/references/language-selection.md` to inform the language recommendation in Phase 2. Skip it for audits — the language is already chosen.
+
+Proceed when cli-guidelines.md is loaded.
 
 ## Phase 2 — Clarify
+
+Determine whether this is a **new design** or an **audit** from the user's trigger.
+
+### New design
 
 Ask, then proceed with best-guess defaults if user is unsure:
 
@@ -42,46 +49,69 @@ Ask, then proceed with best-guess defaults if user is unsure:
 
 If an existing CLI spec or tool description is provided, read it first — skip questions already answered by it.
 
+### Audit
+
+Ask:
+
+- CLI name and source location (repo path, or provide `--help` output).
+- Primary consumer: agent, human, or mixed.
+- Known pain points or specific areas to focus on.
+
+Then explore the codebase: use Glob/Grep to find command definitions, flag registrations, output formatting, and error handling. Run `<cli> --help` via Bash to capture actual behavior.
+
 Proceed when answers are confirmed or user is unsure — use best-guess defaults.
 
 ## Phase 3 — Conventions
 
-Apply these unless the user says otherwise. If primary consumer is human-only, the Errors JSON schema and Reduce tool calls subsections are optional — apply them only if the user wants script-friendliness.
+Apply the conventions from cli-guidelines.md (loaded in Phase 1), including the Agent Ergonomics section. The rules below are the key conventions to enforce — cli-guidelines.md provides the full rubric for edge cases.
+
+If primary consumer is human-only, the Errors and Reduce Tool Calls subsections are optional — apply them only if the user wants script-friendliness.
 
 ### Output
 - Default output is human-readable text. `--json` gives structured JSON. Explicit is better than implicit — no TTY sniffing, no surprises.
-- List commands in `--json` mode use NDJSON (one JSON object per line) — enables streaming and `jq` piping without buffering. For paginated results with metadata, a JSON object with an `items` array is acceptable.
+- List commands in `--json` mode use NDJSON (one JSON object per line) — enables streaming and `jq` piping without buffering. For paginated results with metadata, a JSON object with an `items` array is acceptable. If the CLI extends an existing ecosystem that uses JSON arrays (kubectl, aws, gh), match the ecosystem convention.
 - Primary data to stdout; diagnostics/errors to stderr.
 - Suppress ANSI codes, progress spinners, and decorative output when `--json` is passed or when stdout is not a TTY.
 
-### Errors
+### Errors (agent/mixed consumers only)
 - When `--json` is active, emit error objects on stderr: `{"error": "<snake_case_code>", "message": "...", "hint": "<exact CLI invocation or null>"}` — so agent callers can route recovery logic without parsing free-text stderr. The `hint` field must be an executable command, not prose.
 - Exit codes: `0` success, `1` runtime error, `2` invalid usage; add command-specific codes only when genuinely useful.
 
 ### Flags
 - `-h/--help` always shows help; ignores other args.
 - `--version` prints version to stdout.
+- `--json` preferred for structured output. `--output json`/`-o json` acceptable when the CLI needs multiple output formats (yaml, table, csv) under a single flag. Pick one and apply consistently.
 - Consistent flag names across all subcommands for the same concept (`--id`, `--force`, `--json`) — agents learn the naming pattern once and apply it everywhere without guessing.
-- Prompts only when stdin is a TTY; `--no-input` disables prompts.
+- Prompts only when stdin is a TTY; `--no-input` disables prompts. `--non-interactive` acceptable if the ecosystem already uses it.
 - Destructive operations: interactive confirmation; non-interactive requires `--force`.
 - Respect `NO_COLOR`, `TERM=dumb`; provide `--no-color`.
 - Handle Ctrl-C: exit fast; bounded cleanup; crash-only when possible.
 
-### Reduce tool calls
+### Reduce Tool Calls (agent/mixed consumers only)
 - Compound output: operations return enough data to avoid a follow-up call. `create` returns the new resource's ID and key fields. `delete` echoes what was removed.
 - Rich JSON defaults: in `--json` mode, return full objects not just IDs.
-- Bounded lists: list commands should default to a safe limit (e.g., 50 items) with `--limit` to adjust. In JSON mode, include `has_more` (bool) and optionally `next_cursor` for keyset pagination. Unbounded output wastes tokens and risks context overflow for agent callers.
+- Bounded lists: list commands default to a safe limit (e.g., 50 items) with `--limit` to adjust. In JSON mode, include `has_more` (bool) and optionally `next_cursor` for keyset pagination. Unbounded output wastes tokens and risks context overflow for agent callers.
 - Idempotent by default: where possible, commands are safe to repeat; document preconditions explicitly — agents rely on safe retries for error recovery without human intervention.
 
-For deeper context on the reasoning behind these conventions, read `${CLAUDE_PLUGIN_ROOT}/skills/create-cli/references/agent-aware-design.md`.
-
-Apply all conventions, then proceed to Phase 4.
+Apply all applicable conventions, then proceed to Phase 4.
 
 ## Phase 4 — Deliver
 
-For audits of existing CLIs, produce a gap report organized by severity: Breaking (requires API change), Major (agent-breaking or convention violation), Minor (cosmetic/polish). Each finding: current behavior, convention violated, recommended fix with migration risk (none/low/breaking).
+### Audits
 
-For new designs, produce a compact spec the user can implement. Include all relevant sections:
+Evaluate the existing CLI against every Phase 3 subsection. For each convention, state: what the CLI does today, whether it conforms, and what to change. Also check:
+
+- Flag naming consistency across subcommands.
+- Help text quality (examples present, common flags first, fits one screen).
+- Config precedence (flags > env > project config > user config > defaults).
+- Destructive-op safety (confirmations, --force, --dry-run).
+- Shell completion availability.
+
+Produce a gap report organized by severity: Breaking (requires API change), Major (agent-breaking or convention violation), Minor (cosmetic/polish). Each finding: current behavior, convention violated, recommended fix with migration risk (none/low/breaking).
+
+### New designs
+
+Produce a compact spec the user can implement. Include all relevant sections:
 
 - Command tree + USAGE synopsis.
 - Args/flags table (types, defaults, required/optional, examples).
@@ -127,7 +157,13 @@ See `${CLAUDE_PLUGIN_ROOT}/skills/create-cli/examples/example-cli-spec.md` for a
 
 If the spec is destined for a skill body or CLAUDE.md, omit unused sections entirely (do not mark them "N/A") and limit examples to ≤5 invocations that each demonstrate multiple patterns.
 
-Skill is complete when the spec or gap report is delivered.
+## Phase 5 — Verify
+
+For new specs: confirm the spec covers all applicable sections from the Phase 4 skeleton. Verify the examples section demonstrates at least: `--json` output, error recovery (if agent/mixed consumer), and one piped/stdin usage.
+
+For audits: confirm the gap report addresses every Phase 3 subsection and includes at least one example invocation showing the recommended fix for each Major finding.
+
+Skill is complete when verification passes.
 
 ## Notes
 
