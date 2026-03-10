@@ -2,6 +2,11 @@
 
 All notable changes to the claude-memory plugin are documented here.
 
+## 0.8.4 - 2026-03-10
+
+### Changed
+- Patch version bump by auto-version hook after version-badge correction commit
+
 ## 0.8.3 - 2026-03-10
 
 ### Changed
