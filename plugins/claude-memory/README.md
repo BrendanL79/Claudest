@@ -88,7 +88,7 @@ All hooks are Python for cross-platform compatibility (macOS, Linux, Windows).
 
 ### Security
 
-Input validation and hardening added in v0.7.0: TOCTOU race prevention in `memory-sync.py` using `tempfile.mkstemp()` with 0o600 permissions, path traversal prevention in `sync_current.py` via UUID format validation and `resolve().relative_to()` boundary checks, FTS injection prevention through `sanitize_fts_term()`, and `PRAGMA foreign_keys = ON` enforcement. Teammate coordination messages and prompt_suggestion subagent noise are filtered from context and search (v0.7.1).
+Input validation and hardening added in v0.7.0: TOCTOU race prevention in `memory-sync.py` using `tempfile.mkstemp()` with 0o600 permissions, path traversal prevention in `sync_current.py` via UUID format validation and `resolve().relative_to()` boundary checks, FTS injection prevention through `sanitize_fts_term()`, and `PRAGMA foreign_keys = ON` enforcement. Teammate coordination messages and prompt_suggestion subagent noise are filtered from context and search (v0.7.1). `sanitize_fts_term()` was moved to `memory_lib/content.py` as the single canonical definition in v0.8.1 and hardened in v0.8.2 to strip the `-` (NOT shorthand) and `^` (initial-token boost) FTS5 operators.
 
 ## Manual Usage
 

@@ -1,6 +1,6 @@
-# claude-coding ![v0.1.13](https://img.shields.io/badge/v0.1.13-blue?style=flat-square)
+# claude-coding ![v0.2.0](https://img.shields.io/badge/v0.2.0-blue?style=flat-square)
 
-Coding workflow skills for Claude Code. Seven skills covering the commit loop, project maintenance, and documentation: stage and commit with conventional format, push and open a PR with smart branch handling, safely prune merged or stale branches, keep your CLAUDE.md accurate and concise, generate professional READMEs through a structured interview, create or update a changelog from git history, and refresh an existing README against current codebase state.
+Coding workflow skills for Claude Code. Eight skills and one command covering the commit loop, project maintenance, documentation, and CI setup: stage and commit with conventional format, push and open a PR with smart branch handling, safely prune merged or stale branches, keep your CLAUDE.md accurate and concise, generate professional READMEs through a structured interview, create or update a changelog from git history, refresh an existing README against current codebase state, and configure production-ready Claude Code GitHub Actions workflows.
 
 ## Why
 
@@ -58,6 +58,14 @@ Triggers on: "create a changelog", "generate a changelog", "update my changelog"
 Refresh an existing `README.md` against current codebase state, git history, and changelog content. Runs `make-changelog` first so changelog context is available when revising README sections. Then launches three parallel agents — one to audit stale content and thin sections, one to scan the codebase for the current version and structure, and one to categorize git commits since the README was last touched. Applies updates in priority order: version numbers and badge URLs first, then stale paths and commands, then placeholder cleanup, then new features from git history, then missing standard sections. Falls back to `make-readme` if no substantial README is found. Uses `Edit` for targeted changes and `Write` only when more than 60% of the file changes.
 
 Triggers on: "update my README", "refresh the README", "README is outdated", "sync README with the codebase", "improve my README", "my README is stale", "update readme from git history", "readme is out of date".
+
+## Commands
+
+### /setup-github-actions
+
+Analyze existing `.github/workflows/` and generate production-ready Claude Code GitHub Actions workflows. Detects broken default skeletons installed by `/install-github-app` and surfaces them first. Presents a multi-select menu of workflow types not yet configured — interactive assistant (`@claude` mentions), automatic PR code review, filtered-path PR review, issue triage, issue deduplication, CI failure auto-fix, test failure analysis, and manual on-demand analysis. Applies a permission-minimal model (grants only what Claude needs to write to) and scopes `--allowedTools` to the minimum capabilities per workflow type. Generates language-agnostic review prompts using stack discovery rather than hardcoded framework assumptions. Writes each selected workflow to `.github/workflows/<name>.yml` and summarizes what was created.
+
+Requires `/install-github-app` to have been run first — if no `.yml` files exist under `.github/workflows/`, the command stops and prompts you to do that setup first.
 
 ## License
 

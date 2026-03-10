@@ -1,4 +1,4 @@
-# claude-utilities ![v0.1.7](https://img.shields.io/badge/v0.1.7-blue?style=flat-square)
+# claude-utilities ![v0.2.0](https://img.shields.io/badge/v0.2.0-blue?style=flat-square)
 
 Useful tools that don't fit in a specific plugin.
 

@@ -29,9 +29,9 @@ To enable auto-updates, run `/plugin`, go to the Marketplaces tab, and toggle au
 
 | Plugin | Version | Skills |
 |--------|---------|--------|
-| [claude-memory](#claude-memory) | `0.8.0` | recall-conversations · extract-learnings |
+| [claude-memory](#claude-memory) | `0.8.2` | recall-conversations · extract-learnings |
 | [claude-research](#claude-research) | `0.2.0` | run-research · search-youtube |
-| [claude-coding](#claude-coding) | `0.2.0` | commit · push-pr · clean-branches · update-claudemd · make-readme · make-changelog · update-readme |
+| [claude-coding](#claude-coding) | `0.2.0` | commit · push-pr · clean-branches · update-claudemd · make-readme · make-changelog · update-readme · setup-github-actions |
 | [claude-skills](#claude-skills) | `0.3.0` | create-skill · repair-skill · repair-agent · improve-skill · create-cli · create-agent |
 | [claude-thinking](#claude-thinking) | `0.2.0` | brainstorm |
 | [claude-content](#claude-content) | `0.4.0` | generate-image · compress-video · convert-video · make-gif · share-social · extract-audio |
@@ -42,7 +42,7 @@ To enable auto-updates, run `/plugin`, go to the Marketplaces tab, and toggle au
 
 <a id="claude-memory"></a>
 
-### 🧠 claude-memory &nbsp; ![v0.8.0](https://img.shields.io/badge/v0.8.0-blue?style=flat-square)
+### 🧠 claude-memory &nbsp; ![v0.8.2](https://img.shields.io/badge/v0.8.2-blue?style=flat-square)
 
 Conversation memory for Claude Code. Recall what happened yesterday, last week, or three weeks ago.
 
@@ -95,7 +95,7 @@ brew install bird            # X / Twitter
 
 ### 💻 claude-coding &nbsp; ![v0.2.0](https://img.shields.io/badge/v0.2.0-blue?style=flat-square)
 
-Coding workflow skills for Claude Code. Seven skills covering the commit loop, project maintenance, and documentation.
+Coding workflow skills for Claude Code. Eight skills covering the commit loop, project maintenance, and documentation.
 
 Every coding session involves the same decisions: what belongs in one commit vs multiple, whether you're on the right branch before pushing, what to call the PR, whether your project docs still reflect reality. These skills encode the right defaults and handle the mechanical parts so the workflow stays uninterrupted.
 
@@ -112,6 +112,8 @@ Every coding session involves the same decisions: what belongs in one commit vs 
 `make-changelog` creates or updates `CHANGELOG.md` from git history using Keep-a-Changelog format. Detects existing changelog state, determines the scope (fresh, fill, or unreleased-only), and launches one Haiku subagent per version range in parallel for token-efficient processing. Categorizes commits by user-observable impact rather than commit prefix.
 
 `update-readme` refreshes an existing `README.md` using current codebase state and git history. Runs three parallel research agents (README audit, codebase scan, git history since last touch), updates the changelog first, then applies targeted edits in priority order: version numbers and badge URLs, stale content, new features, and missing or thin sections.
+
+`setup-github-actions` scaffolds and validates GitHub Actions workflows for your project. Generates correct workflow YAML, sets up permissions and triggers, and validates the configuration against the current GitHub Actions schema.
 
 ```
 /plugin install claude-coding@claudest

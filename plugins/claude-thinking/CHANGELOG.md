@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-10
+
+### Changed
+
+- Version bump alongside all plugins; add auto-version hook support to plugin ecosystem
+- Refresh README with current version badge
+
 ## [0.1.5] - 2026-02-23
 
 ### Fixed

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-03-10
+
 ### Added
 - Add one-command installers for reddit-cli and brave-cli in run-research skill
 - Add adaptive multi-round YouTube discovery pipeline with niche-first heuristics (search-youtube research mode)

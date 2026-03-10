@@ -2,6 +2,31 @@
 
 All notable changes to the claude-memory plugin are documented here.
 
+## 0.8.2 - 2026-03-10
+
+### Fixed
+
+- Harden `sanitize_fts_term()` to strip FTS5 `-` (NOT shorthand) and `^` (initial-token boost) operators, preventing injection via those operator forms
+- Add missing `from __future__ import annotations` to test files for Python 3.7+ compatibility
+
+## 0.8.1 - 2026-03-10
+
+### Changed
+
+- Move `sanitize_fts_term()` to `memory_lib/content.py` as single canonical definition; remove duplicate copies from `import_conversations.py` and `search_conversations.py`
+
+### Fixed
+
+- Fix stale pythonpath in `pyproject.toml` (`past-conversations` → `recall-conversations`)
+- Fix vacuous/weak assertions in 4 existing tests
+- Add test coverage for `sanitize_fts_term` (14 cases), `build_context` (9 cases), `migrate_db` (4 cases), `search_sessions` (11 cases FTS5+LIKE), and `import_project` (3 cases) — 218 tests total
+
+## 0.8.0 - 2026-03-10
+
+### Changed
+
+- Minor version bump; all plugin versions advanced to next minor (patch reset to 0)
+
 ## 0.7.8 - 2026-03-02
 
 ### Fixed

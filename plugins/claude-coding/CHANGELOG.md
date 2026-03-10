@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] — 2026-03-10
 
 ### Added
 - Add `update-readme` skill to refresh existing README files against current codebase state, git history, and changelog content
@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `push-pr` skill with multi-PR scope analysis, automatic branch management, and PR body generation
 - Add `commit` skill for intelligent file grouping and conventional commit message generation
 - Add `clean-branches` skill for safely removing merged and stale git branches with confirmation
+- Add `setup-github-actions` command to analyze existing workflows and generate production-ready Claude Code GitHub Actions workflows
 
 ### Changed
 - Rename skills to `make-*` convention (e.g. `readme-maker` → `make-readme`, `changelog-maker` → `make-changelog`) for consistency
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve `update-claudemd` skill with more accurate codebase verification and rewrite logic
 - Repair `commit` skill per audit findings and fix script paths
 - Repair `clean-branches` skill YAML frontmatter and execution modifiers
+- Bump version to 0.2.0 to reflect new `setup-github-actions` command and accumulated feature additions
 
 ### Fixed
 - Fix YAML frontmatter issues across `clean-branches` and other skills
