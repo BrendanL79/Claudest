@@ -34,6 +34,12 @@ def run(cmd: list[str]) -> str:
     return subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT).stdout.strip()
 
 
+def git_add(path: str) -> None:
+    result = subprocess.run(["git", "add", path], capture_output=True, text=True, cwd=ROOT)
+    if result.returncode != 0:
+        print(f"[auto-version] WARNING: git add {path} failed: {result.stderr.strip()}", file=sys.stderr)
+
+
 def get_staged_files() -> list[str]:
     out = run(["git", "diff", "--cached", "--name-only"])
     return [f for f in out.split("\n") if f]
@@ -119,7 +125,7 @@ def main() -> None:
         new = bump_patch(old)
         data["version"] = new
         plugin_json.write_text(json.dumps(data, indent=2) + "\n")
-        subprocess.run(["git", "add", str(plugin_json)], cwd=ROOT)
+        git_add(str(plugin_json))
         bumped[plugin_name] = (old, new)
         print(f"[auto-version] {plugin_name}: {old} → {new}")
 
@@ -133,7 +139,7 @@ def main() -> None:
         if plugin["name"] in bumped:
             plugin["version"] = bumped[plugin["name"]][1]
     marketplace.write_text(json.dumps(market, indent=2) + "\n")
-    subprocess.run(["git", "add", str(marketplace)], cwd=ROOT)
+    git_add(str(marketplace))
     print("[auto-version] marketplace.json updated")
 
     # Sync README badges
@@ -142,7 +148,7 @@ def main() -> None:
         update_plugin_readme(plugin_name, new_version)
         plugin_readme = ROOT / "plugins" / plugin_name / "README.md"
         if plugin_readme.exists():
-            subprocess.run(["git", "add", str(plugin_readme)], cwd=ROOT)
+            git_add(str(plugin_readme))
 
         root_readme = ROOT / "README.md"
         old_content = root_readme.read_text() if root_readme.exists() else ""
@@ -151,7 +157,7 @@ def main() -> None:
             root_readme_dirty = True
 
     if root_readme_dirty:
-        subprocess.run(["git", "add", str(ROOT / "README.md")], cwd=ROOT)
+        git_add(str(ROOT / "README.md"))
         print("[auto-version] README.md badges updated")
 
 
