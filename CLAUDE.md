@@ -6,6 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claudest is a curated Claude Code plugin marketplace containing five plugins: **claude-memory** (conversation memory with full-text search and context injection), **claude-utilities** (convert-to-markdown via ezycopy), **claude-skills** (skill authoring and repair), **claude-coding** (git workflows and CLAUDE.md maintenance), and **claude-thinking** (structured thinking tools). There is no build system or package manager — plugin runtime is Python 3.7+ stdlib-only. Tests use pytest with hypothesis (dev dependencies only).
 
+## Setup (after cloning)
+
+```bash
+pip install pre-commit   # install hook framework (one-time, dev only)
+pre-commit install       # activate hooks for this repo
+```
+
+The `scripts/auto-version.py` hook auto-bumps the patch version of any plugin with staged code changes, then syncs both the plugin README badge and the root README section-header badge in the same pass. It skips plugins where only `README.md` or `CHANGELOG.md` are staged (docs-only), and skips any plugin whose `plugin.json` is already staged (manual bump in progress).
+
 ## Development Commands
 
 ```bash

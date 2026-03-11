@@ -5,7 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2026-03-10]
+
+### Added
+- Add `setup-github-actions` command to claude-coding for GitHub Actions workflow setup and validation
+- Add test coverage for FTS sanitization (14 cases), context injection (9 cases), database migration (4 cases), session search (11 cases), and import pipeline (3 cases)
+- Add allowed-tools support and audit rubric to create-cli skill
+
+### Changed
+- Improve create-cli skill with separate design vs audit paths and new quality check phase
+
+### Fixed
+- Harden FTS injection prevention by stripping FTS5 `-` and `^` operators in `sanitize_fts_term`
+- Fix vacuous and weak test assertions in test suite (4 existing tests strengthened)
+- Correct YAML frontmatter in clean-branches, make-readme, and improve-skill (block sequence format)
+- Clarify push-only-if-requested behavior in commit skill
 
 ## [2026-03-05]
 

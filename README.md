@@ -25,24 +25,9 @@ To enable auto-updates, run `/plugin`, go to the Marketplaces tab, and toggle au
 
 ---
 
-## 📦 Plugins
-
-| Plugin | Version | Skills |
-|--------|---------|--------|
-| [claude-memory](#claude-memory) | `0.8.0` | recall-conversations · extract-learnings |
-| [claude-research](#claude-research) | `0.2.0` | run-research · search-youtube |
-| [claude-coding](#claude-coding) | `0.2.0` | commit · push-pr · clean-branches · update-claudemd · make-readme · make-changelog · update-readme |
-| [claude-skills](#claude-skills) | `0.3.0` | create-skill · repair-skill · repair-agent · improve-skill · create-cli · create-agent |
-| [claude-thinking](#claude-thinking) | `0.2.0` | brainstorm |
-| [claude-content](#claude-content) | `0.4.0` | generate-image · compress-video · convert-video · make-gif · share-social · extract-audio |
-| [claude-utilities](#claude-utilities) | `0.2.0` | convert-to-markdown |
-| [claude-claw](#claude-claw) | `0.3.0` | claw-advisor · create-claw-skill |
-
----
-
 <a id="claude-memory"></a>
 
-### 🧠 claude-memory &nbsp; ![v0.8.0](https://img.shields.io/badge/v0.8.0-blue?style=flat-square)
+### 🧠 claude-memory &nbsp; ![v0.8.4](https://img.shields.io/badge/v0.8.4-blue?style=flat-square)
 
 Conversation memory for Claude Code. Recall what happened yesterday, last week, or three weeks ago.
 
@@ -66,7 +51,7 @@ For the full story behind the architecture: [What I Learned Building a Memory Sy
 
 <a id="claude-research"></a>
 
-### 🔍 claude-research &nbsp; ![v0.2.0](https://img.shields.io/badge/v0.2.0-blue?style=flat-square)
+### 🔍 claude-research &nbsp; ![v0.2.2](https://img.shields.io/badge/v0.2.2-blue?style=flat-square)
 
 Cross-platform research skills for Claude Code. Two complementary tools: a multi-source deep research pipeline and a standalone YouTube research toolkit.
 
@@ -93,9 +78,9 @@ brew install bird            # X / Twitter
 
 <a id="claude-coding"></a>
 
-### 💻 claude-coding &nbsp; ![v0.2.0](https://img.shields.io/badge/v0.2.0-blue?style=flat-square)
+### 💻 claude-coding &nbsp; ![v0.2.2](https://img.shields.io/badge/v0.2.2-blue?style=flat-square)
 
-Coding workflow skills for Claude Code. Seven skills covering the commit loop, project maintenance, and documentation.
+Coding workflow skills for Claude Code. Eight skills covering the commit loop, project maintenance, and documentation.
 
 Every coding session involves the same decisions: what belongs in one commit vs multiple, whether you're on the right branch before pushing, what to call the PR, whether your project docs still reflect reality. These skills encode the right defaults and handle the mechanical parts so the workflow stays uninterrupted.
 
@@ -113,6 +98,8 @@ Every coding session involves the same decisions: what belongs in one commit vs 
 
 `update-readme` refreshes an existing `README.md` using current codebase state and git history. Runs three parallel research agents (README audit, codebase scan, git history since last touch), updates the changelog first, then applies targeted edits in priority order: version numbers and badge URLs, stale content, new features, and missing or thin sections.
 
+`setup-github-actions` scaffolds and validates GitHub Actions workflows for your project. Generates correct workflow YAML, sets up permissions and triggers, and validates the configuration against the current GitHub Actions schema.
+
 ```
 /plugin install claude-coding@claudest
 ```
@@ -121,7 +108,7 @@ Every coding session involves the same decisions: what belongs in one commit vs 
 
 <a id="claude-skills"></a>
 
-### ✍️ claude-skills &nbsp; ![v0.3.0](https://img.shields.io/badge/v0.3.0-blue?style=flat-square)
+### ✍️ claude-skills &nbsp; ![v0.3.2](https://img.shields.io/badge/v0.3.2-blue?style=flat-square)
 
 Skill authoring tools for Claude Code. Six complementary skills that cover the full lifecycle: generate skills, generate agents, audit, improve, repair agents, and CLI design.
 
@@ -149,7 +136,7 @@ All six skills share a `references/` library: a skill anatomy gold standard, a c
 
 <a id="claude-thinking"></a>
 
-### 🤔 claude-thinking &nbsp; ![v0.2.0](https://img.shields.io/badge/v0.2.0-blue?style=flat-square)
+### 🤔 claude-thinking &nbsp; ![v0.2.2](https://img.shields.io/badge/v0.2.2-blue?style=flat-square)
 
 Structured thinking tools for Claude Code. Skills that use dialogue to help you clarify, stress-test, and articulate ideas, then produce a written artifact.
 
@@ -165,7 +152,7 @@ Some of the best thinking happens in conversation, but unstructured conversation
 
 <a id="claude-content"></a>
 
-### 🎬 claude-content &nbsp; ![v0.4.0](https://img.shields.io/badge/v0.4.0-blue?style=flat-square)
+### 🎬 claude-content &nbsp; ![v0.4.2](https://img.shields.io/badge/v0.4.2-blue?style=flat-square)
 
 Content creation and processing tools for Claude Code. Six skills covering image generation and the full video/audio manipulation workflow.
 
@@ -193,7 +180,7 @@ Requires `ffmpeg` and `ffprobe`. Image generation additionally requires `GEMINI_
 
 <a id="claude-utilities"></a>
 
-### 🔧 claude-utilities &nbsp; ![v0.2.0](https://img.shields.io/badge/v0.2.0-blue?style=flat-square)
+### 🔧 claude-utilities &nbsp; ![v0.2.2](https://img.shields.io/badge/v0.2.2-blue?style=flat-square)
 
 Useful tools that don't fit in a specific plugin.
 
@@ -212,7 +199,7 @@ curl -sSL https://raw.githubusercontent.com/gupsammy/EzyCopy/main/install.sh | s
 
 <a id="claude-claw"></a>
 
-### 🦞 claude-claw &nbsp; ![v0.3.0](https://img.shields.io/badge/v0.3.0-blue?style=flat-square)
+### 🦞 claude-claw &nbsp; ![v0.3.2](https://img.shields.io/badge/v0.3.2-blue?style=flat-square)
 
 OpenClaw advisory, troubleshooting, and configuration guidance for Claude Code.
 
