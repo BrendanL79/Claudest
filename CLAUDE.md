@@ -9,10 +9,11 @@ Claudest is a curated Claude Code plugin marketplace containing five plugins: **
 ## Setup (after cloning)
 
 ```bash
-git config core.hooksPath .githooks   # activate the auto-version pre-commit hook
+pip install pre-commit   # install hook framework (one-time, dev only)
+pre-commit install       # activate hooks for this repo
 ```
 
-The hook auto-bumps the patch version of any plugin with staged code changes. It skips plugins where only `README.md` or `CHANGELOG.md` are staged, and skips any plugin whose `plugin.json` is already staged (manual bump in progress).
+The `scripts/auto-version.py` hook auto-bumps the patch version of any plugin with staged code changes, then syncs both the plugin README badge and the root README section-header badge in the same pass. It skips plugins where only `README.md` or `CHANGELOG.md` are staged (docs-only), and skips any plugin whose `plugin.json` is already staged (manual bump in progress).
 
 ## Development Commands
 

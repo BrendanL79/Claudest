@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: auto-version
+        name: Auto-bump plugin versions and sync README badges
+        entry: python3 scripts/auto-version.py
+        language: system
+        pass_filenames: false
+        always_run: false
+        stages: [pre-commit]
