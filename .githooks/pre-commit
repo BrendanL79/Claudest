@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+"""Pre-commit hook: auto-bump patch version for plugins with staged changes.
+
+Skips any plugin whose plugin.json is already staged — that signals a manual
+version bump is in progress and the hook should not interfere.
+
+Skips any plugin where every staged file is README.md or CHANGELOG.md — docs-only
+changes should not trigger a version bump.
+
+Install: git config core.hooksPath .githooks
+"""
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def run(cmd):
+    return subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT).stdout.strip()
+
+
+def get_staged_files():
+    out = run(["git", "diff", "--cached", "--name-only"])
+    return [f for f in out.split("\n") if f]
+
+
+def bump_patch(version):
+    parts = version.split(".")
+    parts[-1] = str(int(parts[-1]) + 1)
+    return ".".join(parts)
+
+
+def main():
+    staged = get_staged_files()
+    if not staged:
+        sys.exit(0)
+
+    # Collect plugins with staged changes and whether plugin.json is staged
+    changed_plugins: dict[str, bool] = {}
+    for f in staged:
+        m = re.match(r"plugins/([^/]+)/", f)
+        if not m:
+            continue
+        name = m.group(1)
+        if name not in changed_plugins:
+            changed_plugins[name] = False
+        if f == f"plugins/{name}/.claude-plugin/plugin.json":
+            changed_plugins[name] = True  # manual bump — skip
+
+    if not changed_plugins:
+        sys.exit(0)
+
+    # Docs-only files — touching only these should not trigger a version bump
+    docs_only_filenames = {"README.md", "CHANGELOG.md"}
+
+    def is_docs_only(plugin_name: str) -> bool:
+        for f in staged:
+            if not f.startswith(f"plugins/{plugin_name}/"):
+                continue
+            if Path(f).name not in docs_only_filenames:
+                return False
+        return True
+
+    bumped: dict[str, tuple[str, str]] = {}
+    for plugin_name, has_manual_bump in changed_plugins.items():
+        if has_manual_bump:
+            continue  # user is already managing this version
+        if is_docs_only(plugin_name):
+            continue  # docs-only change — skip auto-bump
+
+        plugin_json = ROOT / "plugins" / plugin_name / ".claude-plugin" / "plugin.json"
+        if not plugin_json.exists():
+            continue
+
+        data = json.loads(plugin_json.read_text())
+        old = data["version"]
+        new = bump_patch(old)
+        data["version"] = new
+        plugin_json.write_text(json.dumps(data, indent=2) + "\n")
+        subprocess.run(["git", "add", str(plugin_json)], cwd=ROOT)
+        bumped[plugin_name] = (old, new)
+        print(f"[auto-version] {plugin_name}: {old} → {new}")
+
+    if not bumped:
+        sys.exit(0)
+
+    # Sync marketplace.json
+    marketplace = ROOT / ".claude-plugin" / "marketplace.json"
+    market = json.loads(marketplace.read_text())
+    for plugin in market["plugins"]:
+        if plugin["name"] in bumped:
+            plugin["version"] = bumped[plugin["name"]][1]
+    marketplace.write_text(json.dumps(market, indent=2) + "\n")
+    subprocess.run(["git", "add", str(marketplace)], cwd=ROOT)
+    print(f"[auto-version] marketplace.json updated")
+
+
+if __name__ == "__main__":
+    main()
