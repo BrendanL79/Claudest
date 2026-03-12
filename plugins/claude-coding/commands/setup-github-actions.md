@@ -243,7 +243,7 @@ jobs:
               const log = await github.rest.actions.downloadJobLogsForWorkflowRun({
                 owner: context.repo.owner, repo: context.repo.repo, job_id: job.id
               });
-              logs.push({ jobName: job.name, logs: log.data });
+              logs.push({ jobName: job.name, logs: log.data.slice(-50000) });
             }
             return { failedJobs: failedJobs.map(j => j.name), logs };
 
@@ -251,6 +251,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
           prompt: |
             CI failed on branch ${{ github.event.workflow_run.head_branch }}.
             Failed jobs: ${{ join(fromJSON(steps.failure_details.outputs.result).failedJobs, ', ') }}
@@ -258,14 +259,22 @@ jobs:
             <...project-specific fix instructions...>
 ```
 
-**Test failure analysis** — Use `--json-schema` for structured output that drives conditional retry:
+**Test failure analysis** — Instruct Claude to output a classification keyword on its own line for simple conditional branching:
 
 ```yaml
-          claude_args: |
-            --json-schema '{"type":"object","properties":{"is_flaky":{"type":"boolean"},"confidence":{"type":"number","minimum":0,"maximum":1},"summary":{"type":"string"}},"required":["is_flaky","confidence","summary"]}'
+          prompt: |
+            Analyze the test failure. Determine if it is flaky (intermittent, timing-dependent,
+            environment-sensitive) or a real failure (deterministic bug in code).
+            On the LAST line of your response, output exactly one of: FLAKY or REAL_FAILURE
 ```
 
-Then add a conditional retry step that triggers only when `is_flaky == true && confidence >= 0.7`.
+Then add a conditional retry step that greps the output:
+
+```yaml
+      - name: Retry if flaky
+        if: steps.analysis.outputs.result && contains(steps.analysis.outputs.result, 'FLAKY')
+        run: <re-run the failed test suite>
+```
 
 **Issue triage** — Add `allowed_non_write_users` so issues from non-contributors still trigger:
 
