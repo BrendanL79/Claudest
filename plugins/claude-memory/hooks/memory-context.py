@@ -116,7 +116,7 @@ def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_
     return selected
 
 
-def _format_tool_summary(tool_summaries: list[str | None]) -> str:
+def _format_tool_summary(tool_summaries: list) -> str:
     """Merge tool_summary JSON strings from multiple assistant messages into a compact line."""
     merged = {}  # type: dict[str, int]
     for raw in tool_summaries:
@@ -158,7 +158,7 @@ def build_context(sessions: list[dict]) -> str:
         messages = session.get("messages", [])
         for m in messages:
             if m["role"] == "user" and m.get("content"):
-                topic = m["content"].strip().replace("\n", " ")
+                topic = " ".join(m["content"].split())
                 if len(topic) > 120:
                     topic = topic[:120] + "..."
                 lines.append(f"**Topic:** {topic}\n")
@@ -189,7 +189,7 @@ def build_context(sessions: list[dict]) -> str:
         exchanges = []
         current_user = None
         current_asst = []
-        current_tool_summaries = []  # type: list[str | None]
+        current_tool_summaries = []  # type: list
 
         for m in messages:
             if m["role"] == "user":
