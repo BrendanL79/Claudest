@@ -1,13 +1,7 @@
 ---
 name: make-changelog
-description: >
-  This skill should be used when the user asks to "create a changelog",
-  "generate a changelog", "update my changelog", "fill in the changelog",
-  "add a changelog", "CHANGELOG is missing entries", "changelog is out of date",
-  "what's missing from my changelog", "changelog from git history", "write
-  changelog", "release notes", or says "my project needs a CHANGELOG".
-model: sonnet
-context: fork
+description: |
+  This skill should be used when the user asks to "create a changelog", "generate a changelog", "update my changelog", "fill in the changelog", "add a changelog", "CHANGELOG is missing entries", "changelog is out of date", "what's missing from my changelog", "changelog from git history", "write changelog", "release notes", or says "my project needs a CHANGELOG".
 allowed-tools:
   - Bash(git:*)
   - Bash(python3:*)

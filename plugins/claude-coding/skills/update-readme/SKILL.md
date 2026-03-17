@@ -1,13 +1,7 @@
 ---
 name: update-readme
-description: >
-  This skill should be used when the user asks to "update my README",
-  "refresh the README", "README is outdated", "sync README with the codebase",
-  "improve my README", "keep README up to date", "fix the README",
-  "my README is stale", "update the readme file", "README needs updating",
-  "update readme from git history", or "readme is out of date".
-model: sonnet
-context: fork
+description: |
+  This skill should be used when the user asks to "update my README", "refresh the README", "README is outdated", "sync README with the codebase", "improve my README", "keep README up to date", "fix the README", "my README is stale", "update the readme file", "README needs updating", "update readme from git history", or "readme is out of date".
 allowed-tools:
   - Read
   - Glob
