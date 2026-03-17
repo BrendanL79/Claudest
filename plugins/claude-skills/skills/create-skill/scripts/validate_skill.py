@@ -34,7 +34,9 @@ ALLOWED_FRONTMATTER = {
 def _parse_frontmatter(text):
     """Parse simple YAML frontmatter (key: value pairs) without PyYAML.
 
-    Handles scalar values, multi-line folded scalars (>), and simple lists.
+    Handles scalar values and multi-line folded scalars (>).
+    List-valued fields (e.g. allowed-tools) are stored as joined strings,
+    not Python lists — sufficient for key-presence validation.
     Returns a dict, or None if parsing fails.
     """
     result = {}
