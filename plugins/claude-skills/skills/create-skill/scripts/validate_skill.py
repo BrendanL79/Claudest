@@ -9,11 +9,11 @@ Example:
     validate_skill.py ~/.claude/skills/my-skill
 """
 
+from __future__ import annotations
+
 import re
 import sys
 from pathlib import Path
-
-import yaml
 
 MAX_SKILL_NAME_LENGTH = 64
 
@@ -29,6 +29,53 @@ ALLOWED_FRONTMATTER = {
     "license",
     "metadata",
 }
+
+
+def _parse_frontmatter(text):
+    """Parse simple YAML frontmatter (key: value pairs) without PyYAML.
+
+    Handles scalar values, multi-line folded scalars (>), and simple lists.
+    Returns a dict, or None if parsing fails.
+    """
+    result = {}
+    current_key = None
+    current_value_lines = []
+
+    def _flush():
+        if current_key is not None:
+            val = " ".join(current_value_lines).strip()
+            # Unquote if wrapped in matching quotes
+            if len(val) >= 2 and val[0] == val[-1] and val[0] in ('"', "'"):
+                val = val[1:-1]
+            # Convert YAML booleans
+            if val.lower() in ("true", "yes"):
+                val = True
+            elif val.lower() in ("false", "no"):
+                val = False
+            result[current_key] = val
+
+    for line in text.splitlines():
+        # Continuation line (indented, part of multi-line scalar like >)
+        if current_key and line and line[0] in (" ", "\t"):
+            current_value_lines.append(line.strip())
+            continue
+        # New key: value pair
+        m = re.match(r"^([a-zA-Z_][a-zA-Z0-9_-]*)\s*:\s*(.*)", line)
+        if m:
+            _flush()
+            current_key = m.group(1)
+            val = m.group(2).strip()
+            # Folded scalar indicator — value follows on next lines
+            current_value_lines = [] if val in (">", "|") else [val]
+            continue
+        # Blank or unparseable line — flush and reset
+        if not line.strip():
+            _flush()
+            current_key = None
+            current_value_lines = []
+
+    _flush()
+    return result if result else None
 
 
 def validate_skill(skill_path):
@@ -49,12 +96,9 @@ def validate_skill(skill_path):
 
     frontmatter_text = match.group(1)
 
-    try:
-        frontmatter = yaml.safe_load(frontmatter_text)
-        if not isinstance(frontmatter, dict):
-            return False, "Frontmatter must be a YAML dictionary"
-    except yaml.YAMLError as e:
-        return False, f"Invalid YAML in frontmatter: {e}"
+    frontmatter = _parse_frontmatter(frontmatter_text)
+    if frontmatter is None:
+        return False, "Frontmatter must be a YAML dictionary with simple key: value pairs"
 
     # Check for unexpected keys
     unexpected = set(frontmatter.keys()) - ALLOWED_FRONTMATTER

@@ -1,11 +1,8 @@
 ---
 name: repair-skill
 description: >
-  This skill should be used when the user asks to "repair a skill", "audit a skill",
-  "fix my skill", "improve an existing skill", "review skill quality", "check if my skill
-  is well-written", "diagnose skill problems", "what's wrong with this skill", "improve
-  this skill", "what's wrong with this SKILL.md", or asks what can be improved about an
-  existing skill.
+  Audit and repair an existing skill — diagnose structural issues, fix violations, and
+  improve quality. Use when the user asks to repair, audit, fix, or review a skill.
 argument-hint: "<path-to-skill-directory-or-SKILL.md>"
 ---
 
