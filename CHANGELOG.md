@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-03-17]
+
+### Added
+- Enrich session context injection with branch name, dates, topic summary, and tool usage statistics (claude-memory)
+
+### Changed
+- Rewrite setup-github-actions with Anthropic workflow patterns and project-customized review prompts (claude-coding)
+- Replace PyYAML dependency with stdlib-only frontmatter parser in skill validator (claude-skills)
+- Simplify skill frontmatter for make-changelog and update-readme skills (claude-coding)
+
+### Removed
+- Remove unreliable `model`, `context: fork`, and `agent` frontmatter options from skill authoring tools (claude-skills)
+
+### Fixed
+- Rename review workflow canonical name to claude-code-review.yml (claude-coding)
+
 ## [2026-03-10]
 
 ### Added
