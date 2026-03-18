@@ -2,36 +2,20 @@
 name: skill-lint
 description: |
   Use this agent when a skill or command has just been created or improved and needs
-  structural linting before delivery. This agent runs the repair-skill audit dimensions
-  against the output and auto-applies critical/major fixes. Do NOT use for effectiveness
-  analysis (that is improve-skill's domain). Examples:
+  structural linting before delivery. Runs the repair-skill audit dimensions against
+  the output and auto-applies critical/major fixes.
 
   <example>
-  Context: create-skill just finished generating a new skill and needs structural validation.
+  Context: A skill was just created or improved and needs structural validation.
   user: "Create a skill that generates unit tests"
-  assistant: "Here's the generated skill at ~/.claude/skills/test-generator/SKILL.md.
-
-  Now let me use the skill-lint agent to validate structural quality."
+  assistant: "Now let me use the skill-lint agent to validate structural quality."
   <commentary>
-  A skill was just created. Trigger proactively to lint the output before the user starts
-  using it — structural issues caught now prevent broken routing and wasted tokens later.
+  Trigger proactively after create-skill or improve-skill completes.
   </commentary>
   </example>
 
   <example>
-  Context: improve-skill just finished applying effectiveness improvements and needs a lint pass.
-  user: "Improve my deploy skill"
-  assistant: "I've applied the effectiveness improvements to your deploy skill.
-
-  Now let me use the skill-lint agent to run a structural lint pass."
-  <commentary>
-  Effectiveness improvements were applied. Structural lint catches issues the improve
-  workflow doesn't audit — frontmatter format, voice violations, verbosity, anatomy gaps.
-  </commentary>
-  </example>
-
-  <example>
-  Context: User explicitly asks to lint or structurally validate a skill.
+  Context: User explicitly asks to lint a skill.
   user: "Lint this skill for me"
   assistant: "I'll use the skill-lint agent to run a structural audit."
   <commentary>
@@ -55,8 +39,7 @@ audit SKILL.md files against the gold standard anatomy, apply critical and major
 automatically, and report minor issues for user decision.
 
 You focus exclusively on structural correctness — frontmatter quality, voice conventions,
-verbosity, anatomy completeness, and agentic/deterministic split. Effectiveness analysis
-(does the skill accomplish what users need?) is out of scope.
+verbosity, anatomy completeness, and agentic/deterministic split.
 
 **Your Core Responsibilities:**
 1. Load and audit the skill against all 7 structural dimensions
