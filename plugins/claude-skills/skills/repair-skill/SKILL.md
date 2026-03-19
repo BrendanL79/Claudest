@@ -1,8 +1,11 @@
 ---
 name: repair-skill
 description: >
-  Audit and repair an existing skill — diagnose structural issues, fix violations, and
-  improve quality. Use when the user asks to repair, audit, fix, or review a skill.
+  This skill should be used when the user asks to "repair my skill", "audit this skill",
+  "fix my skill", "review skill quality", "check if my skill is well-written",
+  "diagnose skill problems", "what's wrong with this skill", or wants structural
+  correctness fixes. Not for adding features or improving effectiveness — use
+  improve-skill for that.
 argument-hint: "<path-to-skill-directory-or-SKILL.md>"
 ---
 
@@ -23,7 +26,7 @@ Read `$ARGUMENTS` as the path to a skill directory or SKILL.md file.
 
 If the path is missing or ambiguous, use AskUserQuestion to resolve before proceeding.
 
-**Load both reference files before Phase 2:**
+**Load all three reference files before Phase 2:**
 
 1. `${CLAUDE_PLUGIN_ROOT}/skills/repair-skill/references/skill-anatomy.md` — gold standard for
    correct anatomy, three-level loading model, directory type definitions, degrees of
@@ -31,9 +34,12 @@ If the path is missing or ambiguous, use AskUserQuestion to resolve before proce
 2. `${CLAUDE_PLUGIN_ROOT}/skills/repair-skill/references/frontmatter-options.md` — complete
    frontmatter field catalog, valid values, tool list, tool selection framework.
    Required for Dimensions 1 and 2.
+3. `${CLAUDE_PLUGIN_ROOT}/skills/repair-skill/references/audit-calibration.md` — known
+   false-positive patterns that look like violations but are not. Prevents over-flagging
+   on D2 (allowed-tools absent), D4 (Task/Skill prose), and D5 (orientation vs routing).
 
-Proceed to Phase 2 when: SKILL.md is read, sibling directories are cataloged, and both
-reference files are loaded.
+Proceed to Phase 2 when: SKILL.md is read, sibling directories are cataloged, and all
+three reference files are loaded.
 
 ## Phase 2: Audit
 
@@ -112,7 +118,23 @@ and tool selection framework.
 - Does the skill read a file path from `$1` but uses a `Read` tool call instead of `@$1`
   inline injection? A tool round-trip is being wasted. *Minor.*
 - Could real-time data (git status, env vars, file tree) be injected using dynamic content
-  syntax (bang + backtick-wrapped command) instead of a tool call? *Minor per instance.*
+  syntax (bang + backtick-wrapped command) instead of a tool call? *Major when the skill's
+  workflow begins with infallible probes (git branch, file tree, env vars) that never need
+  error handling; Minor for commands that may fail or need exit-code branching.*
+
+  **Before (wastes tool round-trips):**
+  ```
+  1. Run `git log --oneline -5` using Bash
+  2. Run `git diff --name-only` using Bash
+  3. Analyze the results...
+  ```
+  **After (injected at invocation, zero tool calls):**
+  ```
+  - Recent commits: !`git log --oneline -5`
+  - Changed files: !`git diff --name-only`
+
+  Analyze the results...
+  ```
 
 ---
 

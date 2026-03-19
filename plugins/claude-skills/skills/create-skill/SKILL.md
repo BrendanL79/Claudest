@@ -92,6 +92,18 @@ Brief overview (1-2 sentences).
 | `@$1` | Load file from argument |
 | Exclamation + backticks | Execute bash command, include output |
 
+**Example — injecting live context:**
+
+```
+- Current branch: !`git branch --show-current`
+- Recent commits: !`git log --oneline -5`
+- Changed files: !`git diff --name-only`
+
+Summarize this pull request...
+```
+
+These commands run when the skill is invoked. The model sees only the output — no tool calls needed. Use this for infallible probes (git status, env vars, file trees, process output) where failure is rare and the output is informational. Do not use for commands that may fail or need exit-code branching — those require Bash tool calls so the model can handle errors.
+
 ### Step 5 — Script opportunity scan
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/create-skill/references/script-patterns.md` and apply the five signal patterns to every workflow step in the skill being generated:
