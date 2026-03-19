@@ -3,8 +3,8 @@ name: repair-agent
 description: >
   This skill should be used when the user asks to "repair an agent", "audit an agent",
   "fix my agent", "review agent quality", "check if my agent is well-written", "diagnose
-  agent problems", "what's wrong with this agent", or "what's wrong with this agent file".
-  Not for skills — use repair-skill. Not for improving agent effectiveness.
+  agent problems", "what's wrong with this agent", "improve this agent", or "what's wrong
+  with this agent file". Not for skills — use repair-skill.
 argument-hint: "<path-to-agent-file>"
 ---
 
