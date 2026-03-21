@@ -1,10 +1,6 @@
 ---
 name: commit
-description: >
-  This skill should be used when the user says "commit my changes", "commit this",
-  "git commit", "save my work", "stage and commit", or mentions committing code.
-  Also triggers on "create a commit" or "commit what I've done".
-  Not for creating PRs or pushing code — use push-pr.
+description: This skill should be used when the user says "commit my changes", "commit this", "create a commit", "git commit", "save my work", or mentions committing code.
 argument-hint: "[push]"
 allowed-tools:
   - Bash(git:*)

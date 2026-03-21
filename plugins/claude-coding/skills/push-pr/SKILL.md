@@ -1,10 +1,6 @@
 ---
 name: push-pr
-description: >
-  This skill should be used when the user wants to push commits, create or update a
-  pull request, or submit code for review. Triggers on "push this", "push my changes",
-  "create a PR", "open a pull request", "make a PR", "submit for review", "send this up",
-  "open PR", "pr please".
+description: This skill should be used when the user wants to create or update a pull request, or submit code for review. Triggers on "push a PR", "create a PR", "open a pull request", "make a PR", "submit for review", or when user expresses intent to open a pull request or submit for review.
 argument-hint: "[status: 1=open|2=draft|3=ready] [base-branch]"
 allowed-tools:
   - Bash(git:*)
@@ -32,8 +28,8 @@ Injected at invocation — analyze before taking any action:
 - Working tree status: `!git status --porcelain`
 - Current branch: `!git rev-parse --abbrev-ref HEAD`
 - Unpushed commits: `!git rev-list @{u}..HEAD --count 2>/dev/null || echo "no upstream"`
-- Recent commits: `!git log origin/main..HEAD --oneline 2>/dev/null`
-- Diff stat: `!git diff origin/main...HEAD --stat 2>/dev/null`
+- Recent commits: `!git log origin/main..HEAD --oneline 2>/dev/null` (assumes main base; see Step 3 if base differs)
+- Diff stat: `!git diff origin/main...HEAD --stat 2>/dev/null` (captured before fetch; re-run if stale)
 
 ## Workflow
 
@@ -69,6 +65,10 @@ If already on a feature branch: skip to step 3.
 Complete when: HEAD is on a feature branch (not main/master).
 
 ### 3. Context Gathering
+
+Derive working variables from pre-flight context and arguments:
+- `BASE` = base-branch argument, or `main` if not provided
+- `BRANCH` = current branch name (from pre-flight injection)
 
 Use the pre-flight context injected above. If the base branch differs from `main`,
 re-gather against `origin/$BASE`:
