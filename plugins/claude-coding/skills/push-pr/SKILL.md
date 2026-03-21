@@ -1,6 +1,6 @@
 ---
 name: push-pr
-description: This skill should be used when the user wants to create or update a pull request, or submit code for review. Triggers on "push a PR", "create a PR", "open a pull request", "make a PR", "submit for review", or when user expresses intent to open a pull request or submit for review.
+description: This skill should be used when the user wants to create a pull request, or submit code for review. Triggers on "push a PR", "create a PR", "open a pull request", "make a PR", "submit for review".
 argument-hint: "[status: 1=open|2=draft|3=ready] [base-branch]"
 allowed-tools:
   - Bash(git:*)
@@ -9,7 +9,6 @@ allowed-tools:
   - Skill
   - AskUserQuestion
 ---
-
 # Push & PR
 
 Push commits and create/update pull requests with automatic branch management and
@@ -200,4 +199,4 @@ Produce clean, unattributed PRs that match the project's existing commit and PR 
 Single PR: branch name, PR URL, PR status (opened/draft/ready).
 
 Stacked PRs: ordered list showing each PR URL and the branch it targets, plus the name
-of the final branch now checked out.
+of the final branch now checked out. 
