@@ -131,15 +131,18 @@ immediate dependents rather than auditing the full codebase.
    - Commented-out code blocks that should be deleted
    - Feature flags or conditional branches that can never be true
    - Stale imports that are no longer used
-   - Dead dependencies — packages in manifests (package.json, requirements.txt, Cargo.toml)
-     that no source file imports
+   - Dead production dependencies — packages in the production dependency section of manifests
+     (e.g., `dependencies` in package.json, `[project.dependencies]` in pyproject.toml, `[dependencies]`
+     in Cargo.toml) that no source file imports. Skip dev/build/test sections (`devDependencies`,
+     `[tool.*]`, `[dev-dependencies]`) — those packages are invoked by tooling, not imported in source
    - For cross-file dead code, trace the import/export graph with Grep. For default exports
      and aliased imports, grep for the file path, not just the export name.
    Classify each finding as **Confirmed dead** (no references found, no dynamic usage possible)
    or **Candidate dead** (no static references, but dynamic dispatch/reflection/registry patterns
    may reference it — flag for human review).
-   Done when you have traced references for up to 10 suspicious exports per module (prioritize
-   recently changed, unusually named, or rarely-imported symbols) and checked for orphaned files.
+   Done when you have traced references for suspicious exports (prioritize recently changed,
+   unusually named, or rarely-imported symbols) and checked for orphaned files. For large modules,
+   sample and note "N of M exports traced" so the user knows the coverage.
 
 5. Check consistency — compare the new code against established codebase patterns:
    - Error handling: does the new code follow the same pattern as existing code?
