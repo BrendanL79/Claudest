@@ -54,10 +54,10 @@ Reuse the recall-conversations tools when retrieval from prior sessions is neede
 ### recent_chats
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/recall-conversations/scripts/recent_chats.py --n 10
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/recall-conversations/scripts/recent_chats.py --n 10 --project <current-project-name>
 ```
 
-Returns markdown-formatted sessions with exchange headers, timestamps, and project paths. Use `--format json` for structured filtering.
+Always pass `--project` to scope results to the current project. The project name is the directory name of the repo (e.g., `claudest`, `meta-ads-cli`). Returns markdown-formatted sessions with exchange headers, timestamps, and project paths. Use `--format json` for structured filtering.
 
 ### search_conversations
 
@@ -97,7 +97,7 @@ Read existing memory state first, then gather new signal.
 
 - **Past session signal** ("we figured out that...", "remember when we..."): Use `search_conversations.py` or `recent_chats.py` to retrieve that context. Extract substantive keywords to build the query.
 
-- **Broad extraction request** ("extract learnings from recent sessions"): Use `recent_chats.py --n 10` to gather recent context.
+- **Broad extraction request** ("extract learnings from recent sessions"): Use `recent_chats.py --n 10 --project <current-project>` to gather recent context.
 
 - **Ambiguous intent**: Use `AskUserQuestion` to clarify what to extract and from where. Do not guess.
 
@@ -206,7 +206,7 @@ Search for changes worth reflecting in the knowledge base. This is hypothesis-dr
    - Function/class names: use Grep
    - Flag any memory where the referenced entity is missing, renamed, or fundamentally changed. These are contradiction candidates.
 
-2. **Recent session scan** — use `recent_chats.py --n 10` to pull recent sessions. Scan for:
+2. **Recent session scan** — use `recent_chats.py --n 10 --project <current-project>` to pull recent sessions for this project only. Scan for:
    - User corrections or redirections ("don't do X", "actually we should Y")
    - Architectural decisions and their rationale
    - Recurring patterns across multiple sessions (same topic discussed twice = signal)
