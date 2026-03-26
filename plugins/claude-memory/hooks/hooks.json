@@ -18,6 +18,15 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" memory-context.py"
           }
         ]
+      },
+      {
+        "matcher": "startup|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" consolidation-check.py"
+          }
+        ]
       }
     ],
     "Stop": [
