@@ -35,7 +35,7 @@ def get_recent_sessions(
         SELECT s.id, s.uuid, b.started_at, b.ended_at, b.exchange_count,
                b.files_modified, b.commits, s.git_branch,
                p.name as project, p.path as project_path,
-               b.id as branch_db_id
+               b.id as branch_db_id, b.tool_counts
         FROM sessions s
         JOIN branches b ON b.session_id = s.id AND b.is_active = 1
         JOIN projects p ON s.project_id = p.id
@@ -67,7 +67,8 @@ def get_recent_sessions(
 
     for session in sessions:
         (_session_id, uuid, started_at, ended_at, _exchange_count,
-         files_json, commits_json, git_branch, project, _project_path, branch_db_id) = session
+         files_json, commits_json, git_branch, project, _project_path,
+         branch_db_id, tool_counts_json) = session
 
         notif_clause = "" if include_notifications else "AND COALESCE(m.is_notification, 0) = 0"
         cursor.execute(f"""
@@ -93,6 +94,7 @@ def get_recent_sessions(
         if verbose:
             session_data["files_modified"] = json.loads(files_json) if files_json else []
             session_data["commits"] = json.loads(commits_json) if commits_json else []
+            session_data["tool_counts"] = json.loads(tool_counts_json) if tool_counts_json else {}
 
         results.append(session_data)
 
