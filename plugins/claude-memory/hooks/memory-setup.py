@@ -34,6 +34,7 @@ def _needs_backfill() -> bool:
     try:
         import sqlite3
         conn = sqlite3.connect(str(DEFAULT_DB_PATH))
+        conn.execute("PRAGMA journal_mode = WAL")
         conn.execute("PRAGMA busy_timeout = 2000")
         # Check column exists before querying
         cursor = conn.cursor()
