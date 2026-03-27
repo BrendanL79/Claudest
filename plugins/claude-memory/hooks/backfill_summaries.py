@@ -37,7 +37,7 @@ def main():
     while True:
         cursor.execute("""
             SELECT id FROM branches
-            WHERE summary_version IS NULL OR summary_version = 0
+            WHERE summary_version IS NULL OR summary_version < 2
             LIMIT ?
         """, (BATCH_SIZE,))
         rows = cursor.fetchall()
@@ -49,7 +49,7 @@ def main():
             try:
                 summary_md, summary_json = compute_context_summary(cursor, branch_id)
                 cursor.execute("""
-                    UPDATE branches SET context_summary = ?, context_summary_json = ?, summary_version = 1
+                    UPDATE branches SET context_summary = ?, context_summary_json = ?, summary_version = 2
                     WHERE id = ?
                 """, (summary_md, summary_json, branch_id))
                 total_updated += 1

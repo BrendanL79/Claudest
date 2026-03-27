@@ -286,7 +286,7 @@ def sync_session(conn: sqlite3.Connection, filepath: Path, project_dir: Path) ->
         try:
             summary_md, summary_json = compute_context_summary(cursor, branch_db_id)
             cursor.execute("""
-                UPDATE branches SET context_summary = ?, context_summary_json = ?, summary_version = 1
+                UPDATE branches SET context_summary = ?, context_summary_json = ?, summary_version = 2
                 WHERE id = ?
             """, (summary_md, summary_json, branch_db_id))
         except Exception:

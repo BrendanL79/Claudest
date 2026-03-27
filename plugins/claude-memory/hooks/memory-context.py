@@ -165,7 +165,7 @@ def _build_fallback_context(session: dict) -> str:
 
     exchange_count = session.get("exchange_count", len(exchanges))
 
-    if len(exchanges) <= 3:
+    if len(exchanges) <= 8:
         lines.append("### Conversation\n")
         for ex in exchanges:
             t = format_time(ex.get("timestamp"))
@@ -177,26 +177,26 @@ def _build_fallback_context(session: dict) -> str:
                 lines.append(_truncate_mid(ex["assistant"]))
                 lines.append("")
     else:
-        # First exchange
-        first = exchanges[0]
-        lines.append("### First Exchange\n")
-        t = format_time(first.get("timestamp"))
-        lines.append(f"**[{t}] User:**")
-        lines.append(first["user"])
-        lines.append("")
-        if first["assistant"]:
-            lines.append(f"**[{t}] Assistant:**")
-            lines.append(_truncate_mid(first["assistant"]))
+        # First 2 exchanges
+        lines.append("### First Exchanges\n")
+        for ex in exchanges[:2]:
+            t = format_time(ex.get("timestamp"))
+            lines.append(f"**[{t}] User:**")
+            lines.append(ex["user"])
             lines.append("")
+            if ex["assistant"]:
+                lines.append(f"**[{t}] Assistant:**")
+                lines.append(_truncate_mid(ex["assistant"]))
+                lines.append("")
 
         # Gap
-        gap = len(exchanges) - 4
+        gap = len(exchanges) - 8
         if gap > 0:
             lines.append(f"[... {gap} exchanges ...]\n")
 
-        # Last 3 exchanges
+        # Last 6 exchanges
         lines.append("### Where We Left Off\n")
-        for ex in exchanges[-3:]:
+        for ex in exchanges[-6:]:
             t = format_time(ex.get("timestamp"))
             lines.append(f"**[{t}] User:**")
             lines.append(ex["user"])

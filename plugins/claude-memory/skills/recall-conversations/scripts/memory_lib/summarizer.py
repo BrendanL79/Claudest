@@ -195,7 +195,7 @@ def build_context_summary_json(branch_row: dict, messages: list[dict]) -> dict:
     """
     exchanges = _build_exchange_pairs(messages)
     if not exchanges:
-        return {"version": 1, "topic": "", "markers": [], "first_exchange": None,
+        return {"version": 2, "topic": "", "markers": [], "first_exchanges": [],
                 "last_exchanges": [], "metadata": {}}
 
     # Topic from first user message
@@ -206,25 +206,24 @@ def build_context_summary_json(branch_row: dict, messages: list[dict]) -> dict:
     # Extract markers
     markers = extract_markers(exchanges)
 
-    # First exchange
-    first_exchange = {
-        "user": exchanges[0]["user"],
-        "assistant": exchanges[0]["assistant"],
-        "timestamp": exchanges[0]["timestamp"],
-    }
+    # First exchanges (up to 2)
+    first_exchanges = [
+        {"user": ex["user"], "assistant": ex["assistant"], "timestamp": ex["timestamp"]}
+        for ex in exchanges[:2]
+    ]
 
-    # Last exchanges (up to 3, excluding first if already shown)
-    if len(exchanges) <= 3:
-        # Short session: all exchanges go into last_exchanges, first_exchange is same as first of these
+    # Last exchanges (up to 6)
+    if len(exchanges) <= 8:
+        # Short/medium session: all exchanges go into last_exchanges
         last_exchanges = [
             {"user": ex["user"], "assistant": ex["assistant"], "timestamp": ex["timestamp"]}
             for ex in exchanges
         ]
     else:
-        # Take last 3 exchanges
+        # Take last 6 exchanges
         last_exchanges = [
             {"user": ex["user"], "assistant": ex["assistant"], "timestamp": ex["timestamp"]}
-            for ex in exchanges[-3:]
+            for ex in exchanges[-6:]
         ]
 
     # Parse JSON fields from branch_row
@@ -250,10 +249,10 @@ def build_context_summary_json(branch_row: dict, messages: list[dict]) -> dict:
             tool_counts = {}
 
     return {
-        "version": 1,
+        "version": 2,
         "topic": topic,
         "markers": markers,
-        "first_exchange": first_exchange,
+        "first_exchanges": first_exchanges,
         "last_exchanges": last_exchanges,
         "metadata": {
             "exchange_count": branch_row.get("exchange_count", len(exchanges)),
@@ -271,10 +270,10 @@ def render_context_summary(summary_json: dict) -> str:
     """
     Render the JSON summary to injection-ready markdown.
 
-    Short sessions (<=3 exchanges) render all exchanges once, no first/last split.
-    Longer sessions show first exchange + gap + last 3 exchanges.
+    Short sessions (<=8 exchanges) render all exchanges once, no first/last split.
+    Longer sessions show first 2 exchanges + gap + last 6 exchanges.
     """
-    if not summary_json or not summary_json.get("first_exchange"):
+    if not summary_json or not summary_json.get("first_exchanges"):
         return ""
 
     meta = summary_json.get("metadata", {})
@@ -320,11 +319,11 @@ def render_context_summary(summary_json: dict) -> str:
         lines.append("")
 
     exchange_count = meta.get("exchange_count", 0)
-    first_ex = summary_json["first_exchange"]
+    first_exs = summary_json.get("first_exchanges", [])
     last_exs = summary_json.get("last_exchanges", [])
 
-    if exchange_count <= 3:
-        # Short session: render all exchanges once
+    if exchange_count <= 8:
+        # Short/medium session: render all exchanges once
         lines.append("### Conversation\n")
         for ex in last_exs:
             t = format_time(ex.get("timestamp"))
@@ -336,19 +335,20 @@ def render_context_summary(summary_json: dict) -> str:
                 lines.append(_truncate_mid(ex["assistant"]))
                 lines.append("")
     else:
-        # First Exchange
-        lines.append("### First Exchange\n")
-        t = format_time(first_ex.get("timestamp"))
-        lines.append(f"**[{t}] User:**")
-        lines.append(first_ex["user"])
-        lines.append("")
-        if first_ex["assistant"]:
-            lines.append(f"**[{t}] Assistant:**")
-            lines.append(_truncate_mid(first_ex["assistant"]))
+        # First Exchanges (up to 2)
+        lines.append("### First Exchanges\n")
+        for ex in first_exs:
+            t = format_time(ex.get("timestamp"))
+            lines.append(f"**[{t}] User:**")
+            lines.append(ex["user"])
             lines.append("")
+            if ex["assistant"]:
+                lines.append(f"**[{t}] Assistant:**")
+                lines.append(_truncate_mid(ex["assistant"]))
+                lines.append("")
 
         # Gap indicator
-        gap = exchange_count - 1 - len(last_exs)
+        gap = exchange_count - len(first_exs) - len(last_exs)
         if gap > 0:
             lines.append(f"[... {gap} exchanges ...]\n")
 

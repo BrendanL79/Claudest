@@ -503,24 +503,26 @@ class TestBuildFallbackContext:
         assert "User:**" in result
 
     def test_long_session_has_first_and_last(self):
-        """Sessions with >3 exchanges should show first + gap + last 3."""
+        """Sessions with >8 exchanges should show first 2 + gap + last 6."""
         messages = []
-        for i in range(6):
-            messages.append({"role": "user", "content": f"Q{i}", "timestamp": f"2025-01-15T10:0{i}:00Z"})
-            messages.append({"role": "assistant", "content": f"A{i}", "timestamp": f"2025-01-15T10:0{i}:30Z"})
+        for i in range(12):
+            messages.append({"role": "user", "content": f"Q{i}", "timestamp": f"2025-01-15T10:{i:02d}:00Z"})
+            messages.append({"role": "assistant", "content": f"A{i}", "timestamp": f"2025-01-15T10:{i:02d}:30Z"})
         session = {
             "started_at": "2025-01-15T10:00:00Z",
-            "ended_at": "2025-01-15T10:06:00Z",
-            "exchange_count": 6,
+            "ended_at": "2025-01-15T10:12:00Z",
+            "exchange_count": 12,
             "files_modified": [],
             "commits": [],
             "messages": messages,
         }
         result = _build_fallback_context(session)
-        assert "### First Exchange" in result
+        assert "### First Exchanges" in result
         assert "### Where We Left Off" in result
-        assert "Q0" in result  # First exchange
-        assert "Q5" in result  # Last exchange
+        assert "Q0" in result   # First exchange
+        assert "Q1" in result   # Second exchange
+        assert "Q11" in result  # Last exchange
+        assert "Q6" in result   # First of last 6
 
     def test_recall_footer_present(self):
         session = {

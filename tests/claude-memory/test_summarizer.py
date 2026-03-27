@@ -189,9 +189,10 @@ class TestBuildContextSummaryJson:
         ]
         result = build_context_summary_json(branch_row, messages)
 
-        assert result["version"] == 1
+        assert result["version"] == 2
         assert result["topic"] == "Fix the bug in main.py"
-        assert result["first_exchange"]["user"] == "Fix the bug in main.py"
+        assert len(result["first_exchanges"]) == 2
+        assert result["first_exchanges"][0]["user"] == "Fix the bug in main.py"
         assert result["metadata"]["git_branch"] == "main"
         assert result["metadata"]["files_modified"] == ["src/main.py"]
         assert result["metadata"]["tool_counts"] == {"Read": 5}
@@ -199,30 +200,43 @@ class TestBuildContextSummaryJson:
     def test_empty_messages(self):
         branch_row = {"started_at": None, "ended_at": None}
         result = build_context_summary_json(branch_row, [])
-        assert result["first_exchange"] is None
+        assert result["first_exchanges"] == []
         assert result["last_exchanges"] == []
 
     def test_short_session_all_in_last(self):
-        branch_row = {"exchange_count": 2}
-        messages = [
-            {"role": "user", "content": "Q1", "timestamp": "t1"},
-            {"role": "assistant", "content": "A1", "timestamp": "t1"},
-            {"role": "user", "content": "Q2", "timestamp": "t2"},
-            {"role": "assistant", "content": "A2", "timestamp": "t2"},
-        ]
-        result = build_context_summary_json(branch_row, messages)
-        # Short session: all exchanges in last_exchanges
-        assert len(result["last_exchanges"]) == 2
-
-    def test_long_session_last_3(self):
-        branch_row = {"exchange_count": 6}
+        branch_row = {"exchange_count": 5}
         messages = []
-        for i in range(6):
+        for i in range(5):
             messages.append({"role": "user", "content": f"Q{i}", "timestamp": f"t{i}"})
             messages.append({"role": "assistant", "content": f"A{i}", "timestamp": f"t{i}"})
         result = build_context_summary_json(branch_row, messages)
-        assert len(result["last_exchanges"]) == 3
-        assert result["last_exchanges"][0]["user"] == "Q3"
+        # Short/medium session (<=8): all exchanges in last_exchanges
+        assert len(result["last_exchanges"]) == 5
+        assert len(result["first_exchanges"]) == 2
+
+    def test_medium_session_all_in_last(self):
+        branch_row = {"exchange_count": 8}
+        messages = []
+        for i in range(8):
+            messages.append({"role": "user", "content": f"Q{i}", "timestamp": f"t{i}"})
+            messages.append({"role": "assistant", "content": f"A{i}", "timestamp": f"t{i}"})
+        result = build_context_summary_json(branch_row, messages)
+        # At threshold (<=8): all exchanges in last_exchanges
+        assert len(result["last_exchanges"]) == 8
+        assert len(result["first_exchanges"]) == 2
+
+    def test_long_session_last_6(self):
+        branch_row = {"exchange_count": 10}
+        messages = []
+        for i in range(10):
+            messages.append({"role": "user", "content": f"Q{i}", "timestamp": f"t{i}"})
+            messages.append({"role": "assistant", "content": f"A{i}", "timestamp": f"t{i}"})
+        result = build_context_summary_json(branch_row, messages)
+        assert len(result["last_exchanges"]) == 6
+        assert result["last_exchanges"][0]["user"] == "Q4"
+        assert len(result["first_exchanges"]) == 2
+        assert result["first_exchanges"][0]["user"] == "Q0"
+        assert result["first_exchanges"][1]["user"] == "Q1"
 
     def test_topic_truncated(self):
         branch_row = {}
@@ -238,10 +252,12 @@ class TestBuildContextSummaryJson:
 class TestRenderContextSummary:
     def test_short_session_no_first_last_split(self):
         summary = {
-            "version": 1,
+            "version": 2,
             "topic": "test",
             "markers": [],
-            "first_exchange": {"user": "Q1", "assistant": "A1", "timestamp": "2025-01-15T10:00:00Z"},
+            "first_exchanges": [
+                {"user": "Q1", "assistant": "A1", "timestamp": "2025-01-15T10:00:00Z"},
+            ],
             "last_exchanges": [
                 {"user": "Q1", "assistant": "A1", "timestamp": "2025-01-15T10:00:00Z"},
                 {"user": "Q2", "assistant": "A2", "timestamp": "2025-01-15T10:01:00Z"},
@@ -252,30 +268,36 @@ class TestRenderContextSummary:
         }
         result = render_context_summary(summary)
         assert "### Conversation" in result
-        assert "### First Exchange" not in result
+        assert "### First Exchanges" not in result
         assert "### Where We Left Off" not in result
         assert "/recall-conversations" in result
 
     def test_long_session_has_first_and_last(self):
         summary = {
-            "version": 1,
+            "version": 2,
             "topic": "test",
             "markers": [],
-            "first_exchange": {"user": "Q1", "assistant": "A1", "timestamp": "2025-01-15T10:00:00Z"},
+            "first_exchanges": [
+                {"user": "Q1", "assistant": "A1", "timestamp": "2025-01-15T10:00:00Z"},
+                {"user": "Q2", "assistant": "A2", "timestamp": "2025-01-15T10:01:00Z"},
+            ],
             "last_exchanges": [
+                {"user": "Q7", "assistant": "A7", "timestamp": "2025-01-15T10:09:00Z"},
                 {"user": "Q8", "assistant": "A8", "timestamp": "2025-01-15T10:10:00Z"},
                 {"user": "Q9", "assistant": "A9", "timestamp": "2025-01-15T10:11:00Z"},
                 {"user": "Q10", "assistant": "A10", "timestamp": "2025-01-15T10:12:00Z"},
+                {"user": "Q11", "assistant": "A11", "timestamp": "2025-01-15T10:13:00Z"},
+                {"user": "Q12", "assistant": "A12", "timestamp": "2025-01-15T10:14:00Z"},
             ],
-            "metadata": {"exchange_count": 10, "started_at": "2025-01-15T10:00:00Z",
+            "metadata": {"exchange_count": 12, "started_at": "2025-01-15T10:00:00Z",
                           "ended_at": "2025-01-15T11:00:00Z", "git_branch": "feat/x",
                           "files_modified": ["src/a.py", "src/b.py"], "commits": ["fix: thing"],
                           "tool_counts": {"Read": 10, "Edit": 3}},
         }
         result = render_context_summary(summary)
-        assert "### First Exchange" in result
+        assert "### First Exchanges" in result
         assert "### Where We Left Off" in result
-        assert "[... 6 exchanges ...]" in result
+        assert "[... 4 exchanges ...]" in result  # 12 - 2 - 6 = 4
         assert "feat/x" in result
         assert "Modified:" in result
         assert "Tools:" in result
@@ -283,13 +305,15 @@ class TestRenderContextSummary:
 
     def test_markers_rendered(self):
         summary = {
-            "version": 1,
+            "version": 2,
             "topic": "test",
             "markers": [
                 {"type": "DECIDED", "text": "Use Redis for caching", "source_exchange": 3},
                 {"type": "OPEN", "text": "Auth service needs fixing", "source_exchange": 5},
             ],
-            "first_exchange": {"user": "Q1", "assistant": "A1", "timestamp": "2025-01-15T10:00:00Z"},
+            "first_exchanges": [
+                {"user": "Q1", "assistant": "A1", "timestamp": "2025-01-15T10:00:00Z"},
+            ],
             "last_exchanges": [{"user": "Q1", "assistant": "A1", "timestamp": "2025-01-15T10:00:00Z"}],
             "metadata": {"exchange_count": 1, "started_at": "2025-01-15T10:00:00Z",
                           "ended_at": "2025-01-15T10:30:00Z", "git_branch": "main",
@@ -303,10 +327,12 @@ class TestRenderContextSummary:
     def test_mid_truncation_in_render(self):
         long_response = "Start " + "x" * 1000 + " End"
         summary = {
-            "version": 1,
+            "version": 2,
             "topic": "test",
             "markers": [],
-            "first_exchange": {"user": "Q1", "assistant": long_response, "timestamp": "2025-01-15T10:00:00Z"},
+            "first_exchanges": [
+                {"user": "Q1", "assistant": long_response, "timestamp": "2025-01-15T10:00:00Z"},
+            ],
             "last_exchanges": [{"user": "Q1", "assistant": long_response, "timestamp": "2025-01-15T10:00:00Z"}],
             "metadata": {"exchange_count": 1, "started_at": "2025-01-15T10:00:00Z",
                           "ended_at": "2025-01-15T10:30:00Z", "git_branch": "main",
@@ -317,7 +343,7 @@ class TestRenderContextSummary:
 
     def test_empty_summary(self):
         assert render_context_summary({}) == ""
-        assert render_context_summary({"first_exchange": None}) == ""
+        assert render_context_summary({"first_exchanges": []}) == ""
 
 
 class TestComputeContextSummary:
@@ -377,10 +403,11 @@ class TestComputeContextSummary:
         assert "/recall-conversations" in md
 
         parsed = json.loads(json_str)
-        assert parsed["version"] == 1
+        assert parsed["version"] == 2
         assert parsed["topic"] == "How do I fix the parser bug?"
         assert parsed["metadata"]["git_branch"] == "main"
-        assert len(parsed["last_exchanges"]) == 3  # Short session (3 exchanges), all in last
+        assert len(parsed["last_exchanges"]) == 3  # Short session (3 exchanges, <=8), all in last
+        assert len(parsed["first_exchanges"]) == 2
 
     def test_compute_nonexistent_branch(self, db_with_session):
         conn, _ = db_with_session
