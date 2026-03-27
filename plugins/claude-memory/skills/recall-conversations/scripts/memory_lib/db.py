@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS branches (
 );
 CREATE INDEX IF NOT EXISTS idx_branches_session ON branches(session_id);
 CREATE INDEX IF NOT EXISTS idx_branches_active ON branches(is_active);
+CREATE INDEX IF NOT EXISTS idx_branches_summary_version ON branches(summary_version);
 
 -- Messages table (ALL messages stored ONCE per session)
 CREATE TABLE IF NOT EXISTS messages (
@@ -329,6 +330,7 @@ def _migrate_columns(conn: sqlite3.Connection) -> None:
         cursor.execute("ALTER TABLE branches ADD COLUMN context_summary_json TEXT")
     if "summary_version" not in branch_cols:
         cursor.execute("ALTER TABLE branches ADD COLUMN summary_version INTEGER DEFAULT 0")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_branches_summary_version ON branches(summary_version)")
     conn.commit()
 
     # --- DML migrations (version-gated via PRAGMA user_version, run once) ---

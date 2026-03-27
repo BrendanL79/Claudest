@@ -212,7 +212,7 @@ def _build_fallback_context(session: dict) -> str:
                 lines.append("")
 
         # Gap with file summary
-        gap = len(exchanges) - 8
+        gap = exchange_count - 8
         if gap > 0:
             gap_files = [f.rsplit("/", 1)[-1] for f in files[:3]] if files else []
             if gap_files:
