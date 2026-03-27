@@ -1,31 +1,6 @@
 ---
 name: memory-auditor
-description: |
-  Use this agent when you need to verify existing memory entries against codebase ground truth —
-  checking for stale file paths, outdated versions, contradicted facts, or relative dates that
-  need absolute conversion. Spawned by extract-learnings during consolidation, or on explicit
-  request to audit memory quality.
-
-  <example>
-  Context: extract-learnings skill spawns this agent during consolidation workflow.
-  user: "consolidate memories"
-  assistant: "I'll run the extract-learnings consolidation workflow."
-  <commentary>
-  The extract-learnings skill spawns memory-auditor as part of its Phase 2 gather step.
-  The skill passes memory file contents, git log, and verification targets in the prompt.
-  </commentary>
-  assistant: "Spawning memory-auditor and signal-discoverer in parallel."
-  </example>
-
-  <example>
-  Context: User explicitly asks to check if their memories are still accurate.
-  user: "audit my memories for stale entries"
-  assistant: "I'll use the memory-auditor agent to verify memory entries against the codebase."
-  <commentary>
-  Explicit audit request — delegate to verify file paths, versions, and facts named in
-  memory entries still hold true in the current codebase.
-  </commentary>
-  </example>
+description: Verify existing memory entries against codebase ground truth — check for stale paths, outdated versions, contradicted facts, and relative dates needing conversion.
 
 model: inherit
 color: cyan

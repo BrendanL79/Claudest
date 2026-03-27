@@ -1,32 +1,6 @@
 ---
 name: signal-discoverer
-description: |
-  Use this agent when you need to mine recent conversation sessions for uncaptured knowledge —
-  user corrections, architectural decisions, recurring patterns, and behavioral preferences
-  that should be persisted to memory. Spawned by extract-learnings during consolidation, or
-  on explicit request to find new learnings from recent work.
-
-  <example>
-  Context: extract-learnings skill spawns this agent during consolidation workflow.
-  user: "consolidate memories"
-  assistant: "I'll run the extract-learnings consolidation workflow."
-  <commentary>
-  The extract-learnings skill spawns signal-discoverer as part of its Phase 2 gather step,
-  alongside memory-auditor. The skill passes existing memory summaries and project name
-  in the prompt so this agent can avoid proposing duplicates.
-  </commentary>
-  assistant: "Spawning memory-auditor and signal-discoverer in parallel."
-  </example>
-
-  <example>
-  Context: User wants to find what learnings they missed from recent sessions.
-  user: "what should I remember from my recent conversations?"
-  assistant: "I'll use the signal-discoverer agent to scan recent sessions for uncaptured knowledge."
-  <commentary>
-  Explicit request to extract learnings from recent work — delegate to scan conversations
-  and generalize findings to principles.
-  </commentary>
-  </example>
+description: Mine recent conversation sessions for uncaptured knowledge — user corrections, architectural decisions, recurring patterns, and behavioral preferences worth persisting to memory.
 
 model: inherit
 color: cyan
