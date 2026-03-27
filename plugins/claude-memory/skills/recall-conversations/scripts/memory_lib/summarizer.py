@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from typing import Optional
 
 from memory_lib.formatting import format_time, format_time_full
 
@@ -25,9 +24,6 @@ _KEYWORD_PATTERNS = [
     (re.compile(r"(?:blocked on|waiting for|can'?t proceed|depends on)\s+(.{10,120})", re.IGNORECASE), "OPEN"),
     (re.compile(r"(?:skip(?:ped)?|don'?t|instead of|not going to|rejected)\s+(.{10,120})", re.IGNORECASE), "REJECTED"),
 ]
-
-# File path pattern
-_FILE_PATH_RE = re.compile(r'(?:^|[\s`(])(/[\w./-]+\.\w{1,10})(?:[\s`),:]|$)')
 
 # User intent prefixes
 _INTENT_RE = re.compile(r"^(?:let'?s|can you|I want|we need to|I need)\s+(.{10,120})", re.IGNORECASE | re.MULTILINE)
@@ -56,7 +52,7 @@ _NEW_INSTRUCTION_RE = re.compile(
 )
 
 
-def _truncate_mid(text: str, front: int = _FRONT_CHARS, back: int = _BACK_CHARS) -> str:
+def truncate_mid(text: str, front: int = _FRONT_CHARS, back: int = _BACK_CHARS) -> str:
     """Mid-truncate text, keeping front and back portions."""
     if not text or len(text) <= front + back + 20:
         return text
@@ -194,7 +190,7 @@ def extract_markers(exchanges: list[dict]) -> list[dict]:
     return capped
 
 
-def _build_exchange_pairs(messages: list[dict]) -> list[dict]:
+def build_exchange_pairs(messages: list[dict]) -> list[dict]:
     """
     Build exchange pairs from sequential messages.
 
@@ -242,7 +238,7 @@ def build_context_summary_json(branch_row: dict, messages: list[dict]) -> dict:
                      commits, tool_counts, git_branch.
     messages: list of {"role", "content", "timestamp"} dicts, ordered by time.
     """
-    exchanges = _build_exchange_pairs(messages)
+    exchanges = build_exchange_pairs(messages)
     if not exchanges:
         return {"version": 2, "topic": "", "markers": [], "first_exchanges": [],
                 "last_exchanges": [], "metadata": {}}
@@ -422,7 +418,7 @@ def render_context_summary(summary_json: dict) -> str:
             lines.append("")
             if ex["assistant"]:
                 lines.append(f"**[{t}] Assistant:**")
-                lines.append(_truncate_mid(ex["assistant"]))
+                lines.append(truncate_mid(ex["assistant"]))
                 lines.append("")
     else:
         # First Exchanges (up to 2)
@@ -434,7 +430,7 @@ def render_context_summary(summary_json: dict) -> str:
             lines.append("")
             if ex["assistant"]:
                 lines.append(f"**[{t}] Assistant:**")
-                lines.append(_truncate_mid(ex["assistant"]))
+                lines.append(truncate_mid(ex["assistant"]))
                 lines.append("")
 
         # Gap indicator with summary of middle exchanges
@@ -455,7 +451,7 @@ def render_context_summary(summary_json: dict) -> str:
             lines.append("")
             if ex["assistant"]:
                 lines.append(f"**[{t}] Assistant:**")
-                lines.append(_truncate_mid(ex["assistant"]))
+                lines.append(truncate_mid(ex["assistant"]))
                 lines.append("")
 
     # Contextual recall priming footer

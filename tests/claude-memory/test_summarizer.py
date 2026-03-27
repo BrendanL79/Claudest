@@ -8,8 +8,8 @@ import sqlite3
 import pytest
 
 from memory_lib.summarizer import (
-    _build_exchange_pairs,
-    _truncate_mid,
+    build_exchange_pairs,
+    truncate_mid,
     build_context_summary_json,
     compute_context_summary,
     extract_markers,
@@ -21,19 +21,19 @@ from memory_lib.db import SCHEMA, _migrate_columns
 class TestTruncateMid:
     def test_short_text_unchanged(self):
         text = "Short text."
-        assert _truncate_mid(text) == text
+        assert truncate_mid(text) == text
 
     def test_long_text_truncated(self):
         text = "A" * 300 + "B" * 100 + "C" * 600
-        result = _truncate_mid(text)
+        result = truncate_mid(text)
         assert result.startswith("A" * 300)
         assert "[... truncated ...]" in result
         assert result.endswith("C" * 600)
         assert len(result) < len(text)
 
     def test_empty_text(self):
-        assert _truncate_mid("") == ""
-        assert _truncate_mid(None) is None
+        assert truncate_mid("") == ""
+        assert truncate_mid(None) is None
 
 
 class TestBuildExchangePairs:
@@ -42,7 +42,7 @@ class TestBuildExchangePairs:
             {"role": "user", "content": "Hello", "timestamp": "2025-01-01T10:00:00Z"},
             {"role": "assistant", "content": "Hi there", "timestamp": "2025-01-01T10:01:00Z"},
         ]
-        exchanges = _build_exchange_pairs(messages)
+        exchanges = build_exchange_pairs(messages)
         assert len(exchanges) == 1
         assert exchanges[0]["user"] == "Hello"
         assert exchanges[0]["assistant"] == "Hi there"
@@ -55,7 +55,7 @@ class TestBuildExchangePairs:
             {"role": "user", "content": "Q2", "timestamp": "2025-01-01T10:02:00Z"},
             {"role": "assistant", "content": "A2", "timestamp": "2025-01-01T10:03:00Z"},
         ]
-        exchanges = _build_exchange_pairs(messages)
+        exchanges = build_exchange_pairs(messages)
         assert len(exchanges) == 2
         assert exchanges[0]["user"] == "Q1"
         assert exchanges[1]["user"] == "Q2"
@@ -65,7 +65,7 @@ class TestBuildExchangePairs:
             {"role": "user", "content": "Read file", "timestamp": "2025-01-01T10:00:00Z"},
             {"role": "assistant", "content": "Content [Tool: Read] here", "timestamp": "2025-01-01T10:01:00Z"},
         ]
-        exchanges = _build_exchange_pairs(messages)
+        exchanges = build_exchange_pairs(messages)
         assert "[Tool: Read]" not in exchanges[0]["assistant"]
         assert "Content" in exchanges[0]["assistant"]
 
@@ -73,7 +73,7 @@ class TestBuildExchangePairs:
         messages = [
             {"role": "user", "content": "Last question", "timestamp": "2025-01-01T10:00:00Z"},
         ]
-        exchanges = _build_exchange_pairs(messages)
+        exchanges = build_exchange_pairs(messages)
         assert len(exchanges) == 1
         assert exchanges[0]["user"] == "Last question"
         assert exchanges[0]["assistant"] == ""

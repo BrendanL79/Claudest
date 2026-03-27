@@ -23,9 +23,9 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR.parent / "skills" / "recall-conversations" / "scripts"))
 
-from memory_lib.db import get_db_path, load_settings, setup_logging
+from memory_lib.db import get_db_path, load_settings, setup_logging, get_db_connection
 from memory_lib.formatting import format_time, format_time_full, get_project_key
-from memory_lib.summarizer import _build_exchange_pairs, _truncate_mid
+from memory_lib.summarizer import build_exchange_pairs, truncate_mid
 
 
 def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_id: str, max_sessions: int) -> list[dict]:
@@ -152,7 +152,7 @@ def _build_fallback_context(session: dict) -> str:
 
     # Build exchanges early so we can derive topic/disposition
     messages = session.get("messages", [])
-    exchanges = _build_exchange_pairs(messages) if messages else []
+    exchanges = build_exchange_pairs(messages) if messages else []
 
     # Topic and disposition
     topic = exchanges[0]["user"][:120] if exchanges else ""
@@ -196,7 +196,7 @@ def _build_fallback_context(session: dict) -> str:
             lines.append("")
             if ex["assistant"]:
                 lines.append(f"**[{t}] Assistant:**")
-                lines.append(_truncate_mid(ex["assistant"]))
+                lines.append(truncate_mid(ex["assistant"]))
                 lines.append("")
     else:
         # First 2 exchanges
@@ -208,7 +208,7 @@ def _build_fallback_context(session: dict) -> str:
             lines.append("")
             if ex["assistant"]:
                 lines.append(f"**[{t}] Assistant:**")
-                lines.append(_truncate_mid(ex["assistant"]))
+                lines.append(truncate_mid(ex["assistant"]))
                 lines.append("")
 
         # Gap with file summary
@@ -229,7 +229,7 @@ def _build_fallback_context(session: dict) -> str:
             lines.append("")
             if ex["assistant"]:
                 lines.append(f"**[{t}] Assistant:**")
-                lines.append(_truncate_mid(ex["assistant"]))
+                lines.append(truncate_mid(ex["assistant"]))
                 lines.append("")
 
     # Contextual recall priming footer
@@ -308,9 +308,7 @@ def main():
         return
 
     try:
-        conn = sqlite3.connect(db_path)
-        conn.execute("PRAGMA journal_mode = WAL")
-        conn.execute("PRAGMA busy_timeout = 5000")
+        conn = get_db_connection(settings)
         project_key = get_project_key(cwd)
         max_sessions = settings.get("max_context_sessions", 2)
         sessions = select_sessions(conn, project_key, session_id, max_sessions)

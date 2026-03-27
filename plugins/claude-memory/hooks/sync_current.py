@@ -111,14 +111,23 @@ def sync_session(conn: sqlite3.Connection, filepath: Path, project_dir: Path) ->
     project_path = meta["cwd"] if meta.get("cwd") else parse_project_key(project_key)
     project_name = Path(project_path).name
 
-    cursor.execute("""
-        INSERT INTO projects (path, key, name)
-        VALUES (?, ?, ?)
-        ON CONFLICT(path) DO NOTHING
-    """, (project_path, project_key, project_name))
-
-    cursor.execute("SELECT id FROM projects WHERE path = ?", (project_path,))
-    project_id = cursor.fetchone()[0]
+    # First try to find existing project by key
+    cursor.execute("SELECT id, path FROM projects WHERE key = ?", (project_key,))
+    existing = cursor.fetchone()
+    if existing:
+        project_id = existing[0]
+        # Update path/name if we now have better data
+        if project_path != existing[1]:
+            cursor.execute("UPDATE projects SET path = ?, name = ? WHERE id = ?",
+                           (project_path, project_name, project_id))
+    else:
+        cursor.execute("""
+            INSERT INTO projects (path, key, name)
+            VALUES (?, ?, ?)
+            ON CONFLICT(path) DO UPDATE SET key = excluded.key, name = excluded.name
+        """, (project_path, project_key, project_name))
+        cursor.execute("SELECT id FROM projects WHERE key = ?", (project_key,))
+        project_id = cursor.fetchone()[0]
 
     # Step 1: Upsert ONE session row
     cursor.execute("""
