@@ -90,8 +90,8 @@ Quality rules: generalize to principles not incidents, skip anything already cap
    **Target:** <file> → <section>
    **Rationale:** <why this layer>
    ```diff
-   + <new line>
    - <old line>
+   + <new line>
    ```
    ```
 7. MEMORY.md line check — if over 170 lines, propose specific demotions to L3 or removals
