@@ -297,7 +297,7 @@ class TestRenderContextSummary:
         result = render_context_summary(summary)
         assert "### First Exchanges" in result
         assert "### Where We Left Off" in result
-        assert "[... 4 exchanges ...]" in result  # 12 - 2 - 6 = 4
+        assert "[... 4 exchanges covering: a.py, b.py ...]" in result  # 12 - 2 - 6 = 4
         assert "feat/x" in result
         assert "Modified:" in result
         assert "Tools:" in result

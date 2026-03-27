@@ -40,6 +40,21 @@ _MAX_TOTAL = 10
 _FRONT_CHARS = 300
 _BACK_CHARS = 600
 
+# Session disposition patterns
+_COMPLETION_RE = re.compile(
+    r'(?:done|pushed|merged|all (?:tests? )?pass|completed|finished|shipped|deployed|'
+    r'PR #?\d+|commit(?:ted)?|changes? (?:are )?live)',
+    re.IGNORECASE
+)
+_SHORT_CONFIRM_RE = re.compile(
+    r'^(?:y(?:a|ep|es)?|thanks?|(?:looks? )?good|nice|perfect|great|ok|lgtm|k)\s*[.!]?$',
+    re.IGNORECASE
+)
+_NEW_INSTRUCTION_RE = re.compile(
+    r'^(?:now |next |also |can you |let\'?s |please |I (?:want|need) )',
+    re.IGNORECASE
+)
+
 
 def _truncate_mid(text: str, front: int = _FRONT_CHARS, back: int = _BACK_CHARS) -> str:
     """Mid-truncate text, keeping front and back portions."""
@@ -59,6 +74,40 @@ def _extract_bullet_items(text: str) -> list[str]:
     """Extract bullet or numbered list items from text."""
     items = re.findall(r'^[\s]*[-*\d.]+\s+(.+)$', text, re.MULTILINE)
     return items[:5]
+
+
+def detect_disposition(exchanges: list[dict]) -> str:
+    """Classify session ending as COMPLETED, IN_PROGRESS, or INTERRUPTED.
+
+    Heuristics based on the final exchange pair:
+    - COMPLETED: assistant uses completion language and user confirms briefly
+    - IN_PROGRESS: user gives a new instruction as their last message
+    - INTERRUPTED: default / session ends mid-flow
+    """
+    if not exchanges:
+        return "INTERRUPTED"
+
+    last = exchanges[-1]
+    last_user = last.get("user", "").strip()
+    last_asst = last.get("assistant", "").strip()
+
+    # If user's last message is a new instruction, work is in progress
+    if _NEW_INSTRUCTION_RE.search(last_user):
+        return "IN_PROGRESS"
+
+    # If assistant used completion language and user confirmed briefly
+    if _COMPLETION_RE.search(last_asst) and _SHORT_CONFIRM_RE.match(last_user):
+        return "COMPLETED"
+
+    # If assistant used completion language (even without user confirm — session may have ended)
+    if _COMPLETION_RE.search(last_asst) and len(last_user) < 30:
+        return "COMPLETED"
+
+    # If user confirmed briefly (likely accepting the work)
+    if _SHORT_CONFIRM_RE.match(last_user):
+        return "COMPLETED"
+
+    return "IN_PROGRESS"
 
 
 def extract_markers(exchanges: list[dict]) -> list[dict]:
@@ -203,8 +252,10 @@ def build_context_summary_json(branch_row: dict, messages: list[dict]) -> dict:
     if len(topic) > 120:
         topic = topic[:120] + "..."
 
-    # Extract markers
-    markers = extract_markers(exchanges)
+    # Disposition from final exchange; markers disabled (topic + disposition + gap summary
+    # provide equivalent signal without the garbled-regex-fragment risk)
+    disposition = detect_disposition(exchanges)
+    markers = []
 
     # First exchanges (up to 2)
     first_exchanges = [
@@ -251,6 +302,7 @@ def build_context_summary_json(branch_row: dict, messages: list[dict]) -> dict:
     return {
         "version": 2,
         "topic": topic,
+        "disposition": disposition,
         "markers": markers,
         "first_exchanges": first_exchanges,
         "last_exchanges": last_exchanges,
@@ -264,6 +316,32 @@ def build_context_summary_json(branch_row: dict, messages: list[dict]) -> dict:
             "git_branch": branch_row.get("git_branch"),
         },
     }
+
+
+def _build_gap_summary(summary_json: dict, gap_start: int, gap_end: int) -> str:
+    """Build a one-line summary of what happened in the omitted middle exchanges.
+
+    Extracts file paths mentioned, questions asked, and markers sourced from the gap.
+    """
+    parts = []
+
+    # File paths from metadata
+    files = summary_json.get("metadata", {}).get("files_modified", [])
+    if files:
+        # Show up to 3 short filenames
+        short = [f.rsplit("/", 1)[-1] for f in files[:3]]
+        parts.append(", ".join(short))
+
+    # Count questions in the gap from markers
+    gap_markers = [
+        m for m in summary_json.get("markers", [])
+        if gap_start <= m.get("source_exchange", -1) < gap_end
+    ]
+    questions = sum(1 for m in gap_markers if m["type"] == "OPEN")
+    if questions:
+        parts.append(f"{questions} open question{'s' if questions > 1 else ''}")
+
+    return "; ".join(parts)
 
 
 def render_context_summary(summary_json: dict) -> str:
@@ -287,6 +365,18 @@ def render_context_summary(summary_json: dict) -> str:
     if branch:
         header += f" (branch: {branch})"
     lines.append(header + "\n")
+
+    # Topic and disposition
+    topic = summary_json.get("topic", "")
+    disposition = summary_json.get("disposition", "")
+    if topic or disposition:
+        parts = []
+        if topic:
+            parts.append(f"**Topic:** {topic}")
+        if disposition:
+            parts.append(f"**Status:** {disposition}")
+        lines.append(" | ".join(parts))
+        lines.append("")
 
     # Metadata: files, commits, tools
     files = meta.get("files_modified", [])
@@ -347,10 +437,14 @@ def render_context_summary(summary_json: dict) -> str:
                 lines.append(_truncate_mid(ex["assistant"]))
                 lines.append("")
 
-        # Gap indicator
+        # Gap indicator with summary of middle exchanges
         gap = exchange_count - len(first_exs) - len(last_exs)
         if gap > 0:
-            lines.append(f"[... {gap} exchanges ...]\n")
+            gap_detail = _build_gap_summary(summary_json, len(first_exs), exchange_count - len(last_exs))
+            if gap_detail:
+                lines.append(f"[... {gap} exchanges covering: {gap_detail} ...]\n")
+            else:
+                lines.append(f"[... {gap} exchanges ...]\n")
 
         # Where We Left Off
         lines.append("### Where We Left Off\n")
@@ -364,9 +458,19 @@ def render_context_summary(summary_json: dict) -> str:
                 lines.append(_truncate_mid(ex["assistant"]))
                 lines.append("")
 
-    # Recall priming footer
+    # Contextual recall priming footer
+    topic = summary_json.get("topic", "")
+    files = meta.get("files_modified", [])
+    footer_parts = [f"{exchange_count} exchanges"]
+    if topic:
+        short_topic = topic[:80] + "..." if len(topic) > 80 else topic
+        footer_parts.append(f'about "{short_topic}"')
+    if files:
+        short_files = [f.rsplit("/", 1)[-1] for f in files[:3]]
+        footer_parts.append(f"({', '.join(short_files)})")
+    footer = " ".join(footer_parts)
     lines.append(
-        f"[{exchange_count} total exchanges — proactively use /recall-conversations "
+        f"[{footer} — proactively use /recall-conversations "
         "to retrieve relevant context from past conversations when the user references "
         "prior work, asks about decisions made earlier, or when you sense useful context "
         "from previous sessions would improve your response.]"

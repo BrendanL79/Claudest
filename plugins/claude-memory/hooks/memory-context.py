@@ -59,8 +59,9 @@ def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_
     candidates = cursor.fetchall()
     selected = []
 
-    # First pass: filter candidates using the exchange-count algorithm
-    filtered = []
+    # First pass: filter candidates, guaranteeing one substantive session (>2 exchanges)
+    short_sessions = []  # exchange_count == 2
+    substantive = None
     for session in candidates:
         _session_id, uuid, started_at, ended_at, exchange_count, files_json, commits_json, git_branch, branch_db_id, context_summary = session
 
@@ -80,14 +81,23 @@ def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_
         }
 
         if exchange_count == 2:
-            filtered.append(entry)
-            if len(filtered) >= max_sessions:
-                break
+            short_sessions.append(entry)
             continue
 
-        if exchange_count > 2:
-            filtered.append(entry)
-            break
+        # First substantive session found — stop searching
+        substantive = entry
+        break
+
+    # Build filtered list: substantive session always gets a slot,
+    # remaining slots go to short sessions that are more recent
+    filtered = []
+    if substantive:
+        # Short sessions more recent than the substantive one get remaining slots
+        recent_shorts = short_sessions[:max_sessions - 1]
+        filtered = recent_shorts + [substantive]
+    else:
+        # No substantive session — fall back to shorts only
+        filtered = short_sessions[:max_sessions]
 
     if not filtered:
         return selected
@@ -127,6 +137,8 @@ def _build_fallback_context(session: dict) -> str:
     Fallback for sessions without cached context_summary.
     Renders truncated last-3 exchanges in the same format as render_context_summary.
     """
+    from memory_lib.summarizer import detect_disposition
+
     lines = []
 
     # Session header
@@ -137,6 +149,22 @@ def _build_fallback_context(session: dict) -> str:
     if branch:
         header += f" (branch: {branch})"
     lines.append(header + "\n")
+
+    # Build exchanges early so we can derive topic/disposition
+    messages = session.get("messages", [])
+    exchanges = _build_exchange_pairs(messages) if messages else []
+
+    # Topic and disposition
+    topic = exchanges[0]["user"][:120] if exchanges else ""
+    disposition = detect_disposition(exchanges) if exchanges else ""
+    if topic or disposition:
+        parts = []
+        if topic:
+            parts.append(f"**Topic:** {topic}")
+        if disposition:
+            parts.append(f"**Status:** {disposition}")
+        lines.append(" | ".join(parts))
+        lines.append("")
 
     # Files modified (compact)
     files = session.get("files_modified", [])
@@ -154,12 +182,6 @@ def _build_fallback_context(session: dict) -> str:
 
     lines.append("")
 
-    # Build exchanges from messages
-    messages = session.get("messages", [])
-    if not messages:
-        return "\n".join(lines)
-
-    exchanges = _build_exchange_pairs(messages)
     if not exchanges:
         return "\n".join(lines)
 
@@ -189,10 +211,14 @@ def _build_fallback_context(session: dict) -> str:
                 lines.append(_truncate_mid(ex["assistant"]))
                 lines.append("")
 
-        # Gap
+        # Gap with file summary
         gap = len(exchanges) - 8
         if gap > 0:
-            lines.append(f"[... {gap} exchanges ...]\n")
+            gap_files = [f.rsplit("/", 1)[-1] for f in files[:3]] if files else []
+            if gap_files:
+                lines.append(f"[... {gap} exchanges covering: {', '.join(gap_files)} ...]\n")
+            else:
+                lines.append(f"[... {gap} exchanges ...]\n")
 
         # Last 6 exchanges
         lines.append("### Where We Left Off\n")
@@ -206,9 +232,17 @@ def _build_fallback_context(session: dict) -> str:
                 lines.append(_truncate_mid(ex["assistant"]))
                 lines.append("")
 
-    # Recall priming footer
+    # Contextual recall priming footer
+    footer_parts = [f"{exchange_count} exchanges"]
+    if topic:
+        short_topic = topic[:80] + "..." if len(topic) > 80 else topic
+        footer_parts.append(f'about "{short_topic}"')
+    if files:
+        short_files = [f.rsplit("/", 1)[-1] for f in files[:3]]
+        footer_parts.append(f"({', '.join(short_files)})")
+    footer = " ".join(footer_parts)
     lines.append(
-        f"[{exchange_count} total exchanges — proactively use /recall-conversations "
+        f"[{footer} — proactively use /recall-conversations "
         "to retrieve relevant context from past conversations when the user references "
         "prior work, asks about decisions made earlier, or when you sense useful context "
         "from previous sessions would improve your response.]"
