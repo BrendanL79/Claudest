@@ -32,6 +32,7 @@ model: inherit
 color: cyan
 tools:
   - Read
+  - Grep
   - Glob
   - Bash(python3:*)
   - Bash(git:*)
@@ -56,8 +57,9 @@ project name. If the project name is missing, infer it from the current working 
    sort by modification time, read the 5 most recent. Extract only human and assistant text
    content — skip tool_use, tool_result, and system blocks.
 
-2. Run the script to retrieve recent sessions:
+2. If step 1 found a script path, run it:
    `python3 <script-path> --n 10 --project <project-name> --verbose`
+   If step 1b was used instead, skip to step 3 — the JSONL content is already loaded.
 
 3. Analyze each session for high-signal content. Look specifically for:
    - User corrections ("no, not that", "don't do X", "stop doing Y") — these indicate

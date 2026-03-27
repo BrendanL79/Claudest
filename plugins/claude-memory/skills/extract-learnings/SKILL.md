@@ -42,12 +42,12 @@ If the user said "remember X" with explicit content already in context — and t
 
 1. Resolve memory path: `Glob ~/.claude/projects/*<repo-dir-name>*/memory/MEMORY.md`
    - If MEMORY.md does not exist, create it with `# Project Memory` header. Note that the Memory Auditor has nothing to audit — in Phase 2, spawn only the Signal Discoverer.
-2. Read MEMORY.md + list topic files (`Glob memory/*.md` from resolved path)
-3. Read both CLAUDE.md files (`~/.claude/CLAUDE.md` + `<repo>/CLAUDE.md`)
-4. `git log --oneline -20`
 
 Steps 2-4 can run as parallel tool calls.
 
+2. Read MEMORY.md + list topic files (`Glob memory/*.md` from resolved path)
+3. Read both CLAUDE.md files (`~/.claude/CLAUDE.md` + `<repo>/CLAUDE.md`)
+4. `git log --oneline -20`
 5. Build context snapshot: summarize existing knowledge + list verification targets (file paths, functions, patterns named in memories)
 
 ### Phase 2: Gather (2 agents in parallel)
