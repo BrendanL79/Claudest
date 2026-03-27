@@ -76,7 +76,8 @@ def format_markdown_session(session: dict, verbose: bool = False) -> str:
         if tool_counts:
             sorted_tools = sorted(tool_counts.items(), key=lambda x: x[1], reverse=True)
             tools_str = ", ".join(f"{name}: {count}" for name, count in sorted_tools)
-            lines.append(f"\nTools: {tools_str}")
+            lines.append("\n### Tools Used")
+            lines.append(tools_str)
 
     lines.append("\n### Conversation\n")
 

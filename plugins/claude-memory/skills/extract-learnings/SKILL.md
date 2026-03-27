@@ -107,7 +107,7 @@ Apply approved edits. Output summary table:
 |----------|--------|--------|--------|
 ```
 
-Write consolidation marker: `Bash(date -u +%Y-%m-%dT%H:%M:%SZ)` → Write `.last-consolidation` in same directory as MEMORY.md.
+Only if Phase 2 subagents ran (not an early-exit capture): write consolidation marker `Bash(date -u +%Y-%m-%dT%H:%M:%SZ)` → Write `.last-consolidation` in same directory as MEMORY.md.
 
 ## Content Quality Rules
 
