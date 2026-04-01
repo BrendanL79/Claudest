@@ -2,11 +2,14 @@
 """
 Load previous session context from memory database for SessionStart hook.
 
-Selection Algorithm:
-1. Get recent sessions for current project (excluding current session)
-2. Skip sessions with exchange_count <= 1 (noise)
-3. Load sessions with exchange_count == 2, keep looking (up to MAX_SESSIONS)
-4. Stop at first session with exchange_count > 2 (sufficient context)
+Selection Algorithm (startup):
+  Exclude current session, find most recent substantive (>2 exchanges)
+  plus recent short sessions (2 exchanges) in remaining slots.
+
+Selection Algorithm (clear):
+  Force-select current session (if >1 exchange) + always include the most
+  recent substantive session from other sessions. Falls through to startup
+  logic if current session is noise (≤1 exchange).
 
 Output: JSON with hookSpecificOutput for context injection
 """
@@ -28,10 +31,99 @@ from memory_lib.formatting import format_time, format_time_full, get_project_key
 from memory_lib.summarizer import build_exchange_pairs, truncate_mid
 
 
-def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_id: str, max_sessions: int) -> list[dict]:
+def _row_to_entry(row) -> dict:
+    """Convert a candidate row to an entry dict."""
+    _session_id, uuid, started_at, ended_at, exchange_count, files_json, commits_json, git_branch, branch_db_id, context_summary = row
+    return {
+        "uuid": uuid,
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "exchange_count": exchange_count,
+        "files_modified": json.loads(files_json) if files_json else [],
+        "commits": json.loads(commits_json) if commits_json else [],
+        "git_branch": git_branch,
+        "branch_db_id": branch_db_id,
+        "context_summary": context_summary,
+    }
+
+
+_CANDIDATE_QUERY = """
+    SELECT s.id, s.uuid, b.started_at, b.ended_at, b.exchange_count,
+           b.files_modified, b.commits, s.git_branch, b.id as branch_db_id,
+           b.context_summary
+    FROM sessions s
+    JOIN branches b ON b.session_id = s.id AND b.is_active = 1
+    WHERE s.project_id = ?
+      AND s.uuid != ?
+      AND s.parent_session_id IS NULL
+    ORDER BY b.ended_at DESC
+    LIMIT 20
+"""
+
+_CURRENT_SESSION_QUERY = """
+    SELECT s.id, s.uuid, b.started_at, b.ended_at, b.exchange_count,
+           b.files_modified, b.commits, s.git_branch, b.id as branch_db_id,
+           b.context_summary
+    FROM sessions s
+    JOIN branches b ON b.session_id = s.id AND b.is_active = 1
+    WHERE s.project_id = ?
+      AND s.uuid = ?
+      AND s.parent_session_id IS NULL
+"""
+
+
+def _find_first_substantive(cursor, project_id: int, exclude_uuid: str) -> dict | None:
+    """Find the most recent substantive session (>2 exchanges), excluding a given uuid."""
+    cursor.execute(_CANDIDATE_QUERY, (project_id, exclude_uuid))
+    for row in cursor.fetchall():
+        entry = _row_to_entry(row)
+        if entry["exchange_count"] > 2:
+            return entry
+    return None
+
+
+def _load_messages_for(cursor, entries: list[dict]) -> None:
+    """Load messages for entries that lack a cached context_summary, in-place."""
+    uncached_ids = [s["branch_db_id"] for s in entries if not s.get("context_summary")]
+    if not uncached_ids:
+        return
+
+    placeholders = ",".join("?" * len(uncached_ids))
+    cursor.execute(f"""
+        SELECT bm.branch_id, m.role, m.content, m.timestamp
+        FROM branch_messages bm
+        JOIN messages m ON bm.message_id = m.id
+        WHERE bm.branch_id IN ({placeholders})
+          AND COALESCE(m.is_notification, 0) = 0
+        ORDER BY bm.branch_id, m.timestamp ASC
+    """, uncached_ids)
+
+    branch_messages: dict[int, list[dict]] = {}
+    for branch_id, role, content, timestamp in cursor.fetchall():
+        branch_messages.setdefault(branch_id, []).append(
+            {"role": role, "content": content, "timestamp": timestamp}
+        )
+
+    for entry in entries:
+        if not entry.get("context_summary"):
+            entry["messages"] = branch_messages.get(entry["branch_db_id"], [])
+
+
+def _finalize(entries: list[dict]) -> list[dict]:
+    """Strip internal branch_db_id from entries before returning."""
+    for entry in entries:
+        entry.pop("branch_db_id", None)
+    return entries
+
+
+def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_id: str, max_sessions: int, source: str = "startup") -> list[dict]:
     """
     Select sessions for context using the exchange-count algorithm.
-    Returns list of session dicts with messages.
+
+    On startup: exclude current session, find most recent substantive + recent shorts.
+    On clear: force-select current session (if >1 exchange), always find a
+    supplementary substantive session from other sessions. Falls through to
+    startup logic if current session is noise (≤1 exchange).
     """
     cursor = conn.cursor()
 
@@ -42,45 +134,45 @@ def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_
         return []
     project_id = row[0]
 
-    # Get recent active branches (by last activity), excluding current and subagents
-    cursor.execute("""
-        SELECT s.id, s.uuid, b.started_at, b.ended_at, b.exchange_count,
-               b.files_modified, b.commits, s.git_branch, b.id as branch_db_id,
-               b.context_summary
-        FROM sessions s
-        JOIN branches b ON b.session_id = s.id AND b.is_active = 1
-        WHERE s.project_id = ?
-          AND s.uuid != ?
-          AND s.parent_session_id IS NULL
-        ORDER BY b.ended_at DESC
-        LIMIT 20
-    """, (project_id, current_session_id))
+    # --- Clear path: current session first ---
+    if source == "clear":
+        cursor.execute(_CURRENT_SESSION_QUERY, (project_id, current_session_id))
+        current_row = cursor.fetchone()
 
+        if current_row:
+            current = _row_to_entry(current_row)
+
+            if current["exchange_count"] > 1:
+                # Force-use fallback context for current session on clear,
+                # since cached context_summary may be stale (computed before
+                # the most recent exchanges)
+                current["context_summary"] = None
+
+                filtered = [current]
+
+                # Always look for a supplementary substantive session
+                supplementary = _find_first_substantive(cursor, project_id, current_session_id)
+                if supplementary:
+                    filtered.append(supplementary)
+
+                _load_messages_for(cursor, filtered)
+                return _finalize(filtered)
+
+        # Current session is noise or missing — fall through to startup logic
+
+    # --- Startup path (also fallback for clear) ---
+    cursor.execute(_CANDIDATE_QUERY, (project_id, current_session_id))
     candidates = cursor.fetchall()
-    selected = []
 
-    # First pass: filter candidates, guaranteeing one substantive session (>2 exchanges)
     short_sessions = []  # exchange_count == 2
     substantive = None
-    for session in candidates:
-        _session_id, uuid, started_at, ended_at, exchange_count, files_json, commits_json, git_branch, branch_db_id, context_summary = session
+    for row in candidates:
+        entry = _row_to_entry(row)
 
-        if exchange_count <= 1:
+        if entry["exchange_count"] <= 1:
             continue
 
-        entry = {
-            "uuid": uuid,
-            "started_at": started_at,
-            "ended_at": ended_at,
-            "exchange_count": exchange_count,
-            "files_modified": json.loads(files_json) if files_json else [],
-            "commits": json.loads(commits_json) if commits_json else [],
-            "git_branch": git_branch,
-            "branch_db_id": branch_db_id,
-            "context_summary": context_summary,
-        }
-
-        if exchange_count == 2:
+        if entry["exchange_count"] == 2:
             short_sessions.append(entry)
             continue
 
@@ -90,46 +182,17 @@ def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_
 
     # Build filtered list: substantive session always gets a slot,
     # remaining slots go to short sessions that are more recent
-    filtered = []
     if substantive:
-        # Short sessions more recent than the substantive one get remaining slots
         recent_shorts = short_sessions[:max_sessions - 1]
         filtered = recent_shorts + [substantive]
     else:
-        # No substantive session — fall back to shorts only
         filtered = short_sessions[:max_sessions]
 
     if not filtered:
-        return selected
+        return []
 
-    # Split into cached (has context_summary) and uncached
-    uncached_ids = [s["branch_db_id"] for s in filtered if not s.get("context_summary")]
-
-    # Only batch-load messages for uncached branches
-    branch_messages = {}  # type: dict[int, list[dict]]
-    if uncached_ids:
-        placeholders = ",".join("?" * len(uncached_ids))
-        cursor.execute(f"""
-            SELECT bm.branch_id, m.role, m.content, m.timestamp
-            FROM branch_messages bm
-            JOIN messages m ON bm.message_id = m.id
-            WHERE bm.branch_id IN ({placeholders})
-              AND COALESCE(m.is_notification, 0) = 0
-            ORDER BY bm.branch_id, m.timestamp ASC
-        """, uncached_ids)
-
-        for branch_id, role, content, timestamp in cursor.fetchall():
-            branch_messages.setdefault(branch_id, []).append(
-                {"role": role, "content": content, "timestamp": timestamp}
-            )
-
-    for entry in filtered:
-        if not entry.get("context_summary"):
-            entry["messages"] = branch_messages.get(entry["branch_db_id"], [])
-        del entry["branch_db_id"]
-        selected.append(entry)
-
-    return selected
+    _load_messages_for(cursor, filtered)
+    return _finalize(filtered)
 
 
 def _build_fallback_context(session: dict) -> str:
@@ -311,7 +374,7 @@ def main():
         conn = get_db_connection(settings)
         project_key = get_project_key(cwd)
         max_sessions = settings.get("max_context_sessions", 2)
-        sessions = select_sessions(conn, project_key, session_id, max_sessions)
+        sessions = select_sessions(conn, project_key, session_id, max_sessions, source=source)
         conn.close()
 
         if not sessions:
