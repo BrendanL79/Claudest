@@ -317,6 +317,37 @@ def _build_fallback_context(session: dict) -> str:
     return "\n".join(lines)
 
 
+def build_origin_block(source: str, sessions: list[dict]) -> str:
+    """Build a structured Session Origin block that tells the new session where it came from."""
+    if not sessions:
+        return ""
+
+    primary = sessions[0]
+    started = format_time_full(primary.get("started_at", ""))
+    ended = format_time_full(primary.get("ended_at", ""))
+    branch = primary.get("git_branch", "unknown")
+    exchanges = primary.get("exchange_count", 0)
+
+    if source == "clear":
+        source_label = "clear (continuing same session)"
+    else:
+        source_label = "startup (new session)"
+
+    lines = [
+        "## Session Origin",
+        f"- Source: {source_label}",
+        f"- Previous session started: {started}",
+        f"- Branch: {branch}",
+        f"- Exchanges: {exchanges}",
+        f"- Last active: {ended}",
+    ]
+
+    if len(sessions) > 1:
+        lines.append(f"- +{len(sessions) - 1} supplementary session(s) included below")
+
+    return "\n".join(lines)
+
+
 def build_context(sessions: list[dict]) -> str:
     """Build markdown context from selected sessions.
 
@@ -391,8 +422,9 @@ def main():
 
         logger.info(f"Injecting context from {len(sessions)} session(s) for project {project_key}")
 
-        # Wrap in section header
-        full_context = f"## Previous Session Context\n\n{context}"
+        # Wrap in origin block + section header
+        origin = build_origin_block(source, sessions)
+        full_context = f"{origin}\n\n{context}"
 
         output = {
             "hookSpecificOutput": {
