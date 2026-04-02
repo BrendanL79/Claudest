@@ -23,34 +23,16 @@ Unique agent identifier within its scope.
 
 ### `description`
 
-Defines when Claude delegates to this agent. **Most critical field** — the routing model reads
-this to decide when to spawn.
+Defines when Claude delegates to this agent. Loaded into context every session — token
+budget matters.
 
-**Required format:**
+Use `>` folded scalar. Target 50-70 tokens. No `<example>` blocks.
 
-```
-Use this agent when [conditions]. Examples:
-
-<example>
-Context: [Situation description]
-user: "[Exact user message]"
-assistant: "[Claude's response referencing the agent]"
-<commentary>
-[Why this agent should trigger — the routing rationale]
-</commentary>
-</example>
-```
-
-**Design rules:**
-
-- Start with `Use this agent when...` — the routing model pattern-matches this structure
-- Include 2–4 `<example>` blocks; fewer examples miss synonym coverage
-- Cover different phrasings of the same intent — routing matches token patterns, not meaning
-- Proactive examples (agent triggers after an event, not just on request) use a two-turn assistant pattern:
-  1. First assistant turn: performs the original task
-  2. Second assistant turn: "Now let me use the [agent] to..."
-- `<commentary>` explains routing reasoning to the model, not just restates user intent
-- State when NOT to trigger if another agent covers adjacent territory
+**Format:**
+- Start with "Use this agent when [trigger conditions]."
+- Add proactive hint if applicable ("Recommended PROACTIVELY after...")
+- Add scope boundary if adjacent agents exist ("Not for X — use Y-agent.")
+- State when NOT to trigger if ambiguity with other agents exists
 
 ---
 
@@ -205,7 +187,7 @@ mcpServers:
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|
 | `name` | Yes | — | lowercase-hyphens, 3-50 chars |
-| `description` | Yes | — | "Use this agent when..." + `<example>` blocks |
+| `description` | Yes | — | "Use this agent when..." — concise `>` scalar, 50-70 tokens, no examples |
 | `model` | No | `inherit` | inherit/sonnet/haiku/opus |
 | `color` | No | — | blue/cyan/green/yellow/magenta/red |
 | `tools` | No | all tools | Least-privilege allowlist |
@@ -223,27 +205,9 @@ mcpServers:
 
 ## Proactive Agent Pattern
 
-For agents that should trigger after an event (not just on explicit request), the description
-needs two-turn assistant examples showing the before/after flow:
-
-```
-<example>
-Context: User has just written a new function and the task appears complete.
-user: "Write a function that validates email addresses"
-assistant: "Here's the validation function:
-
-```python
-def validate_email(email: str) -> bool:
-    import re
-    return bool(re.match(r'^[^@]+@[^@]+\.[^@]+$', email))
-```"
-<commentary>
-A logical unit of code was written. The code-reviewer agent should be triggered proactively
-to review it for quality and edge cases, even though the user didn't explicitly ask.
-</commentary>
-assistant: "Now let me use the code-reviewer agent to review this function."
-</example>
-```
+For agents that should trigger after an event (not just on explicit request), include
+"Recommended PROACTIVELY after [event]" in the description. The description itself stays
+concise — the proactive behavior is a hint to the routing model, not a worked example.
 
 ---
 
@@ -252,17 +216,8 @@ assistant: "Now let me use the code-reviewer agent to review this function."
 ```markdown
 ---
 name: simple-agent
-description: |
-  Use this agent when the user needs [task]. Examples:
-
-  <example>
-  Context: [Situation]
-  user: "[Request]"
-  assistant: "[Response]"
-  <commentary>
-  [Routing reason]
-  </commentary>
-  </example>
+description: >
+  Use this agent when [trigger conditions]. Not for [adjacent concern] — use [other-agent].
 model: inherit
 color: blue
 ---

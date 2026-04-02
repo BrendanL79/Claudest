@@ -1,45 +1,9 @@
 ---
 name: code-reviewer
-description: |
-  Use this agent when the user wants code reviewed for quality, bugs, or best practices.
-  Also trigger proactively after a meaningful chunk of code is written, even if the user
-  hasn't explicitly asked for review. Examples:
-
-  <example>
-  Context: User asks for an explicit review.
-  user: "Can you review this function for me?"
-  assistant: "I'll use the code-reviewer agent to analyze it."
-  <commentary>
-  Explicit review request — trigger code-reviewer immediately.
-  </commentary>
-  </example>
-
-  <example>
-  Context: User asked to write a function and it has been written.
-  user: "Write a function that parses ISO 8601 dates"
-  assistant: "Here's the implementation:
-
-  ```python
-  from datetime import datetime
-
-  def parse_iso_date(s: str) -> datetime:
-      return datetime.fromisoformat(s.replace('Z', '+00:00'))
-  ```"
-  <commentary>
-  A logical unit of code was completed. Trigger proactively — the user asked for code,
-  not review, but review adds value without being asked. This is the proactive pattern.
-  </commentary>
-  assistant: "Now let me use the code-reviewer agent to check this."
-  </example>
-
-  <example>
-  Context: User wants to know if code is ready to commit.
-  user: "Is this code ready to commit?"
-  assistant: "I'll use the code-reviewer agent to assess it."
-  <commentary>
-  Pre-commit quality check is an explicit delegation to code-reviewer.
-  </commentary>
-  </example>
+description: >
+  Use this agent when you need code reviewed for quality, bugs, or best practices.
+  Recommended PROACTIVELY after writing a meaningful chunk of code. Not for security
+  analysis (use security-auditor) or architectural review (use architecture-auditor).
 model: inherit
 color: blue
 tools: ["Read", "Grep", "Glob"]

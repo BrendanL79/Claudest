@@ -11,7 +11,7 @@ any audit dimension — it is the rubric for Dimensions 3, 5, 6, and 7.
 |---------|-------|-------|
 | File location | `agents/<name>.md` | `skills/<name>/SKILL.md` |
 | Body voice | Second-person ("You are...") | Imperative ("Analyze...") |
-| Description format | "Use this agent when..." + `<example>` blocks | "This skill should be used when..." + trigger phrases |
+| Description format | "Use this agent when..." — concise `>` scalar, no `<example>` blocks | "This skill should be used when..." + trigger phrases |
 | Triggering | Spawned via Task tool; description triggers delegation | Auto-triggered by description routing |
 | Context | Isolated context window | Injects into current conversation |
 | Domain preloading | `skills:` frontmatter field | `references/` directory loaded on demand |

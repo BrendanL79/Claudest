@@ -1,25 +1,10 @@
 ---
 name: skill-lint
-description: |
+description: >
   Use this agent when a skill needs structural linting after creation or improvement.
-
-  <example>
-  Context: A skill was just created or improved and needs structural validation.
-  user: "Create a skill that generates unit tests"
-  assistant: "Now let me use the skill-lint agent to validate structural quality."
-  <commentary>
-  Trigger proactively after create-skill or improve-skill completes.
-  </commentary>
-  </example>
-
-  <example>
-  Context: User explicitly asks to lint a skill.
-  user: "Lint this skill for me"
-  assistant: "I'll use the skill-lint agent to run a structural audit."
-  <commentary>
-  Explicit lint request — delegate directly.
-  </commentary>
-  </example>
+  Trigger PROACTIVELY after create-skill or improve-skill completes. Audits SKILL.md
+  against the 7-dimension quality standard; auto-applies critical and major fixes.
+  Not for agent files — those have a different contract.
 model: inherit
 color: yellow
 tools:

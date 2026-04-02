@@ -63,26 +63,15 @@ The description is read by the routing model to decide when to spawn this agent.
 the primary trigger mechanism and is always in context. Audit for violations *and* gaps.
 
 **Violations:**
-- **Framing:** Does it start with "Use this agent when..."? This exact pattern is what the
-  routing model matches. Any other framing — third-person "This agent should be used when...",
-  first-person, bare imperative — reduces routing match rate. *Critical if wrong.*
-- **Scalar type:** Does it use `|` literal scalar? Agents use `|` (not `>`) because
-  `<example>` XML blocks require literal newlines to be preserved. `>` folds them.
-  *Major if using `>` — blocks may parse incorrectly.*
-- **Example blocks present:** Does it have 2–4 `<example>` blocks? Fewer misses synonym
-  trigger coverage. *Major if 0–1 examples.*
-- **Example completeness:** Does each `<example>` have `Context:`, `user:`, `assistant:`,
-  and `<commentary>`? Missing elements break the routing pattern. *Major per missing element.*
-- **Commentary quality:** Is `<commentary>` substantive — explaining routing reasoning — or
-  does it just restate the user message? Hollow commentary wastes tokens without improving
-  routing. *Minor.*
-- **Proactive pattern:** For agents that should fire after events (not just on explicit
-  request), does the description include a two-turn assistant example (task completed →
-  agent invoked)? *Major if proactive intent is declared but the pattern is missing.*
+- **Framing:** Does it start with "Use this agent when..."? *Critical if wrong.*
+- **Bloated description:** Description should be a concise `>` folded scalar, 50-70 tokens.
+  No `<example>` blocks — they waste context without improving routing. *Major if examples
+  present or description exceeds ~80 tokens.*
+- **Scalar type:** Should use `>` (folded). *Minor if using `|` without XML blocks.*
+- **Proactive hint missing:** For agents that fire after events, does the description include
+  "Recommended PROACTIVELY after..."? *Minor if proactive intent without the hint.*
 
 **Gaps:**
-- **Synonym coverage:** Do the examples cover meaningfully different phrasings of the same
-  intent? Near-identical examples miss synonym trigger space. *Minor.*
 - **Negative trigger:** If adjacent agents exist with overlapping scope, does the description
   state when NOT to trigger? *Minor if adjacent agent exists without disambiguation.*
 
@@ -250,13 +239,13 @@ example of the report format and a before/after repair session.
 
 ```
 AGENT IMPROVEMENT REPORT: <agent-name>
-System prompt: [N] lines | Description: [N] examples | Tools: [listed / unrestricted]
+System prompt: [N] lines | Description: [N] tokens | Tools: [listed / unrestricted]
 
 VIOLATIONS
 ──────────
 CRITICAL
   [D1] Description does not start with "Use this agent when..." — routing model cannot
-       match. Fix: rewrite opening as "Use this agent when [trigger conditions]. Examples:"
+       match. Fix: rewrite opening as "Use this agent when [trigger conditions]."
 
 MAJOR
   [D3] Body uses first-person throughout ("I will analyze...") — system prompt must be

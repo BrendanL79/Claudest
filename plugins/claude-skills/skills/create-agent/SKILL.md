@@ -15,7 +15,7 @@ complex multi-step work to autonomous subprocesses with isolated context windows
 
 **Agents vs Skills — know the difference before generating:**
 
-- **Agents** run in isolated context, have second-person system prompts ("You are..."), use `<example>` XML blocks in descriptions, and are spawned via the Task tool
+- **Agents** run in isolated context, have second-person system prompts ("You are..."), use concise `>` folded scalar descriptions (50-70 tokens, no `<example>` blocks), and are spawned via the Task tool
 - **Skills** inject inline into the current conversation, use imperative body instructions for Claude to follow, and route via description matching on trigger phrases
 
 ## Phase 0: Understand Requirements
@@ -59,36 +59,16 @@ field catalog, color semantics, model options, tool selection framework, and exe
 over-permission has no human in the loop to catch it. `["Read", "Grep", "Glob"]` for analysis.
 Add `Write` for generation. Add `Bash` only when shell execution is essential, never by default.
 
-### Step 3 — Write description with `<example>` blocks
+### Step 3 — Write description
 
-Agent descriptions use a unique two-part format: a trigger statement + XML example blocks.
-The routing model uses this structure to decide when to spawn the agent.
+The description field is loaded into context every session. Token budget matters — write the
+minimum needed for accurate routing.
 
-**Format:**
-
-```
-Use this agent when [trigger conditions]. Examples:
-
-<example>
-Context: [Situation description]
-user: "[User request]"
-assistant: "[How Claude responds before delegating to agent]"
-<commentary>
-[Why this agent should trigger here]
-</commentary>
-</example>
-```
-
-**Intensional rules for the description field:**
-
-- 2–4 `<example>` blocks — single-example descriptions miss synonym trigger coverage
-- Cover different phrasings of the same intent — routing matches on token patterns across examples
-- Include proactive examples when the agent should fire after events, not just on explicit request
-- `<commentary>` must explain routing reasoning, not just restate the user message
-- Specify when NOT to use if ambiguity with other agents exists — prevents mis-routing
-
-For proactive agents, the description needs a two-turn assistant pattern showing an event followed
-by delegation. See `references/agent-frontmatter.md` for the exact format.
+Use a `>` folded scalar with:
+- "Use this agent when [trigger conditions]."
+- Proactive hint if applicable ("Recommended PROACTIVELY after...")
+- Scope boundary ("Not for X — use Y-agent.")
+- Target: 50-70 tokens. No `<example>` blocks — they waste context without improving routing.
 
 ### Step 4 — Write system prompt
 
@@ -250,10 +230,9 @@ Phase 3 is complete when score ≥ 9.0 or one refinement pass has run. Deliver: 
 
 **Description Quality:**
 - [ ] Starts with "Use this agent when..."
-- [ ] Contains 2–4 `<example>` blocks
-- [ ] Each example has Context, user, assistant, and `<commentary>`
-- [ ] Covers different trigger phrasings (synonym coverage)
-- [ ] Proactive example included if agent should fire after events
+- [ ] Concise `>` scalar, 50-70 tokens, no `<example>` blocks
+- [ ] Covers scope boundaries (what it's NOT for)
+- [ ] Proactive hint included if agent should fire after events
 
 **System Prompt Quality:**
 - [ ] Written in second person ("You are...", "You will...")

@@ -1,44 +1,10 @@
 ---
 name: code-auditor
-description: |
+description: >
   Use this agent when you need code quality review — readability, correctness, dead code, naming,
   and consistency. Use PROACTIVELY after implementing features, fixing bugs, or refactoring.
-  Focuses on the changed code and its immediate context. Error handling review focuses on
-  correctness and consistency of error paths, not security implications (use security-auditor)
-  or performance impact of error patterns (use performance-auditor). Not for architectural
-  patterns or module boundary design (use architecture-auditor).
-
-  <example>
-  Context: User asks for an explicit code quality review.
-  user: "Review this code for quality issues"
-  assistant: "I'll use the code-auditor agent to analyze the code quality."
-  <commentary>
-  Explicit quality review request — delegate immediately. The user wants readability,
-  correctness, and style feedback, not security or architecture analysis.
-  </commentary>
-  </example>
-
-  <example>
-  Context: User just finished implementing a feature across several files.
-  user: "Add retry logic to the API client with exponential backoff"
-  assistant: "Done — added retry logic with exponential backoff to the API client across 3 files."
-  <commentary>
-  A meaningful chunk of code was just written. Trigger proactively to catch bugs, dead code
-  from the refactor, inconsistent error handling, or naming mismatches with existing conventions.
-  </commentary>
-  assistant: "Now let me use the code-auditor agent to review the changes."
-  </example>
-
-  <example>
-  Context: User wants to find unused code in the project.
-  user: "Find dead code in this module"
-  assistant: "I'll use the code-auditor agent to scan for dead code."
-  <commentary>
-  Dead code detection is a core code-auditor responsibility — unused exports, unreachable
-  branches, orphaned files, stale imports.
-  </commentary>
-  </example>
-
+  Focuses on changed code and its immediate context. Not for security (use security-auditor),
+  performance (use performance-auditor), or architectural patterns (use architecture-auditor).
 model: inherit
 color: yellow
 tools:

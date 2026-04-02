@@ -1,40 +1,10 @@
 ---
 name: architecture-auditor
-description: |
+description: >
   Use this agent when you need architectural guidance or review. Recommended PROACTIVELY after
   adding features that span 3+ modules, refactoring cross-module boundaries, or making structural
   design decisions. Not for naming, formatting, or single-file style questions — those are code
   quality, not architecture.
-
-  <example>
-  Context: User asks for architecture review explicitly.
-  user: "Review the architecture of this module"
-  assistant: "I'll use the architecture-auditor agent to analyze the module's design."
-  <commentary>
-  Explicit architecture review request — delegate immediately.
-  </commentary>
-  </example>
-
-  <example>
-  Context: User asks for quick architectural guidance during implementation.
-  user: "Should I use the repository pattern here or just call the database directly?"
-  assistant: "I'll use the architecture-auditor agent to evaluate the tradeoffs for this context."
-  <commentary>
-  Architectural decision point during implementation — advisor mode, quick targeted guidance.
-  </commentary>
-  </example>
-
-  <example>
-  Context: User just completed adding a new feature that touches multiple files.
-  user: "Add a caching layer to the API responses"
-  assistant: "I've added the caching layer with Redis integration across 4 files."
-  <commentary>
-  A significant feature was just added touching multiple modules. Trigger proactively to verify
-  the new code respects existing architectural boundaries and doesn't introduce coupling issues.
-  </commentary>
-  assistant: "Now let me use the architecture-auditor agent to verify this fits the existing architecture."
-  </example>
-
 model: inherit
 color: blue
 tools:
