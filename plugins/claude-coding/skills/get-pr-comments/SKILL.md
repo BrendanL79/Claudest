@@ -19,12 +19,13 @@ argument-hint: "[PR number or URL]"
 Fetch, organize, and present all comments on a GitHub pull request — issue-level
 comments, review bodies, and inline review comments — grouped by human vs bot,
 with actionable items (must-fix, optional) extracted from structured reviews
-and inline comments. Deduplicates repeated items across iterative review rounds.
+and inline comments.
 
 ## Pre-Flight Context
 
 - Current branch: `!git rev-parse --abbrev-ref HEAD`
 - Repo: `!gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || echo "unknown"`
+- Current branch PR: `!gh pr view --json number,title --jq '"\(.number) — \(.title)"' 2>/dev/null || echo "none"`
 
 ## Workflow
 
@@ -32,48 +33,39 @@ and inline comments. Deduplicates repeated items across iterative review rounds.
 
 Parse `$ARGUMENTS` for a PR number or URL. If present, use it directly.
 
-If no arguments provided, attempt to detect from the current branch:
+If no arguments provided, check the pre-flight "Current branch PR" value. If it
+contains a PR number (not "none"), use the detected PR.
 
-```bash
-gh pr view --json number,title --jq '"\(.number) — \(.title)"' 2>/dev/null
-```
-
-If that succeeds, use the detected PR. If it fails (no PR for current branch), list
-open PRs and ask the user to pick:
+If no PR detected, list open PRs:
 
 ```bash
 gh pr list --state open --limit 10 --json number,title,headRefName --jq '.[] | "\(.number)\t\(.title)\t(\(.headRefName))"'
 ```
 
-Present options via AskUserQuestion. If only one open PR exists, use it directly.
+If the list is empty, report "No open PRs found for this repository" and stop.
+If only one open PR exists, use it directly. Otherwise present options via
+AskUserQuestion.
 
 ### 2. Fetch comments
 
-Run the fetch script with the resolved PR number:
+Run the fetch script with the resolved PR number (default text output is
+pre-formatted and token-efficient; use `--output json` only for programmatic
+consumers):
 
 ```bash
-python3 $SKILL_DIR/scripts/fetch_pr_comments.py <PR_NUMBER> --output json
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/get-pr-comments/scripts/fetch_pr_comments.py <PR_NUMBER>
 ```
 
 Exit 0 = proceed. Exit 2 = `gh` auth or network error — report to user.
 
 ### 3. Present results
 
-Parse the JSON output. Present in this order:
+The script output is already formatted for presentation. If the output starts
+with "0 human, 0 bot", report "No comments on this PR yet" and skip to Step 4.
 
-**Summary line**: PR number, total comment count, human vs bot breakdown.
-
-**Actionable items first** (if any extracted from review bodies or inline comments):
-- Must-fix items with source reviewer, content, and `file:line` if from inline comment
-- Optional suggestions with source reviewer and content
-- Items are deduplicated across review rounds — repeated carry-forwards are collapsed
-
-**Human comments**: grouped chronologically. For inline comments, include
-`file:line` reference for navigation.
-
-**Bot comments**: in a separate section. For inline comments, include
-`file:line` reference. For review bodies, include the review state
-(APPROVED, CHANGES_REQUESTED, COMMENTED).
+Otherwise, relay the script output directly. The output is structured as:
+actionable items (must-fix, optional) first, then human comments, then bot
+comments (truncated). Do not reformat or reparse — present as-is.
 
 ### 4. Suggest next steps
 

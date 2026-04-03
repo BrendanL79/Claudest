@@ -33,15 +33,31 @@ def run_gh(args: list[str]) -> str:
     return result.stdout.strip()
 
 
+def _parse_slurped(raw: str) -> list:
+    """Parse --slurp output which wraps each page's array in an outer array."""
+    if not raw:
+        return []
+    pages = json.loads(raw)
+    # --slurp produces [[page1...], [page2...], ...] — flatten to single list
+    return [item for page in pages for item in page]
+
+
 def is_bot(login: str) -> bool:
     return any(login.endswith(s) for s in BOT_SUFFIXES)
 
 
+def _api_prefix(repo: str | None) -> str:
+    """Return the repos/OWNER/REPO or repos/{owner}/{repo} prefix for gh api."""
+    if repo:
+        return f"repos/{repo}"
+    return "repos/{owner}/{repo}"
+
+
 def fetch_issue_comments(pr_number: int, repo: str | None) -> list[dict]:
-    repo_flag = ["--repo", repo] if repo else []
-    raw = run_gh(["api", f"repos/{{owner}}/{{repo}}/issues/{pr_number}/comments"]
-                 + repo_flag + ["--paginate"])
-    items = json.loads(raw) if raw else []
+    prefix = _api_prefix(repo)
+    raw = run_gh(["api", f"{prefix}/issues/{pr_number}/comments",
+                  "--paginate", "--slurp"])
+    items = _parse_slurped(raw)
     return [
         {
             "type": "issue_comment",
@@ -57,10 +73,10 @@ def fetch_issue_comments(pr_number: int, repo: str | None) -> list[dict]:
 
 
 def fetch_reviews(pr_number: int, repo: str | None) -> list[dict]:
-    repo_flag = ["--repo", repo] if repo else []
-    raw = run_gh(["api", f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/reviews"]
-                 + repo_flag + ["--paginate"])
-    items = json.loads(raw) if raw else []
+    prefix = _api_prefix(repo)
+    raw = run_gh(["api", f"{prefix}/pulls/{pr_number}/reviews",
+                  "--paginate", "--slurp"])
+    items = _parse_slurped(raw)
     return [
         {
             "type": "review",
@@ -78,10 +94,10 @@ def fetch_reviews(pr_number: int, repo: str | None) -> list[dict]:
 
 
 def fetch_inline_comments(pr_number: int, repo: str | None) -> list[dict]:
-    repo_flag = ["--repo", repo] if repo else []
-    raw = run_gh(["api", f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/comments"]
-                 + repo_flag + ["--paginate"])
-    items = json.loads(raw) if raw else []
+    prefix = _api_prefix(repo)
+    raw = run_gh(["api", f"{prefix}/pulls/{pr_number}/comments",
+                  "--paginate", "--slurp"])
+    items = _parse_slurped(raw)
     return [
         {
             "type": "inline_comment",
@@ -119,10 +135,10 @@ OPTIONAL_PATTERNS = [
 INLINE_SEVERITY_PATTERNS = [
     (re.compile(r"!\[P1[^\]]*\]", re.IGNORECASE), "must_fix"),
     (re.compile(r"\*\*P1\*\*", re.IGNORECASE), "must_fix"),
-    (re.compile(r"must.fix|blocking|critical|required", re.IGNORECASE), "must_fix"),
+    (re.compile(r"\bmust[- ]fix\b|\bblocking\b|\bcritical\b|\brequired\b", re.IGNORECASE), "must_fix"),
     (re.compile(r"!\[P2[^\]]*\]", re.IGNORECASE), "optional"),
     (re.compile(r"\*\*P2\*\*", re.IGNORECASE), "optional"),
-    (re.compile(r"optional|suggestion|nit|minor|non-blocking", re.IGNORECASE), "optional"),
+    (re.compile(r"\boptional\b|\bsuggestion\b|\bnit\b|\bminor\b|\bnon-blocking\b", re.IGNORECASE), "optional"),
 ]
 
 
@@ -299,57 +315,71 @@ def build_result(pr_number: int, repo: str | None) -> dict:
     }
 
 
+BOT_BODY_LIMIT = 300  # max chars for bot comment bodies
+
+
+def _short_date(ts: str) -> str:
+    """Extract date portion from ISO timestamp (2025-01-15T14:30:00Z -> 2025-01-15)."""
+    return ts[:10] if ts and len(ts) >= 10 else ""
+
+
+def _truncate(text: str, limit: int) -> str:
+    """Truncate text to limit chars, appending ellipsis if truncated."""
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip() + " [...]"
+
+
+def _format_comment_header(comment: dict) -> str:
+    """Compact one-line header: user | type | date | location."""
+    parts = [comment["user"], comment["type"]]
+    ts = _short_date(comment.get("created_at") or comment.get("submitted_at", ""))
+    if ts:
+        parts.append(ts)
+    if comment["type"] == "inline_comment":
+        parts.append(f'{comment.get("path", "?")}:{comment.get("line", "?")}')
+    elif comment["type"] == "review" and comment.get("state"):
+        parts.append(comment["state"])
+    return " | ".join(parts)
+
+
 def format_text(result: dict) -> str:
     lines = []
     pr = result["pr_number"]
-    lines.append(f"PR #{pr} — {result['total_comments']} comments "
-                 f"({result['human_count']} human, {result['bot_count']} bot)")
-    lines.append("")
+    lines.append(f"PR #{pr}: {result['human_count']} human, "
+                 f"{result['bot_count']} bot comments")
 
-    # Actionable items first
+    # Actionable items first — most important for the consuming agent
     must_fix = result["actionable"]["must_fix"]
     optional = result["actionable"]["optional"]
 
     if must_fix:
-        lines.append("=== MUST FIX ===")
+        lines.append("\n== MUST FIX ==")
         for item in must_fix:
-            lines.append(f"\n[from {item['source_user']}]")
+            lines.append(f"\n@{item['source_user']}:")
             lines.append(item["content"])
-        lines.append("")
 
     if optional:
-        lines.append("=== OPTIONAL SUGGESTIONS ===")
+        lines.append("\n== OPTIONAL ==")
         for item in optional:
-            lines.append(f"\n[from {item['source_user']}]")
+            lines.append(f"\n@{item['source_user']}:")
             lines.append(item["content"])
-        lines.append("")
 
-    # Human comments
+    # Human comments — full bodies, compact headers
     human = result["human_comments"]
     if human:
-        lines.append("=== HUMAN COMMENTS ===")
+        lines.append("\n== HUMAN COMMENTS ==")
         for c in human:
-            ts = c.get("created_at") or c.get("submitted_at", "")
-            lines.append(f"\n--- {c['user']} ({c['type']}) {ts} ---")
-            if c["type"] == "inline_comment":
-                lines.append(f"  File: {c['path']}:{c.get('line', '?')}")
-            if c["type"] == "review":
-                lines.append(f"  State: {c['state']}")
+            lines.append(f"\n> {_format_comment_header(c)}")
             lines.append(c["body"])
-        lines.append("")
 
-    # Bot comments
+    # Bot comments — truncated bodies to save tokens
     bot = result["bot_comments"]
     if bot:
-        lines.append("=== BOT COMMENTS ===")
+        lines.append("\n== BOT COMMENTS ==")
         for c in bot:
-            ts = c.get("created_at") or c.get("submitted_at", "")
-            lines.append(f"\n--- {c['user']} ({c['type']}) {ts} ---")
-            if c["type"] == "inline_comment":
-                lines.append(f"  File: {c['path']}:{c.get('line', '?')}")
-            if c["type"] == "review":
-                lines.append(f"  State: {c['state']}")
-            lines.append(c["body"])
+            lines.append(f"\n> {_format_comment_header(c)}")
+            lines.append(_truncate(c["body"], BOT_BODY_LIMIT))
 
     return "\n".join(lines)
 
