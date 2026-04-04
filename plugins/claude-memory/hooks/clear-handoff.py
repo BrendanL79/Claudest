@@ -3,7 +3,7 @@
 SessionEnd hook (matcher: clear) — writes a handoff file so the subsequent
 SessionStart hook can hard-link to this session.
 
-Receives session_id, cwd, and transcript_path from the SessionEnd payload.
+Receives session_id and cwd from the SessionEnd payload.
 No stdout required — SessionEnd hooks don't consume output.
 """
 
@@ -45,7 +45,6 @@ def main():
         "session_id": session_id,
         "cwd": cwd,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "transcript_path": hook_input.get("transcript_path", ""),
     }
 
     try:
