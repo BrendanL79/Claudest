@@ -60,7 +60,7 @@ _CANDIDATE_QUERY = """
     LIMIT 20
 """
 
-_CURRENT_SESSION_QUERY = """
+_SESSION_BY_UUID_QUERY = """
     SELECT s.id, s.uuid, b.started_at, b.ended_at, b.exchange_count,
            b.files_modified, b.commits, s.git_branch, b.id as branch_db_id,
            b.context_summary
@@ -118,14 +118,54 @@ def _finalize(entries: list[dict]) -> list[dict]:
     return entries
 
 
-def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_id: str, max_sessions: int, source: str = "startup") -> list[dict]:
+def _read_handoff(db_path: Path, cwd: str) -> str | None:
+    """
+    Read and consume the clear-handoff.json file.
+    Returns the previous session_id if the handoff is valid (recent, same cwd),
+    otherwise None. Always deletes the file if it exists.
+    """
+    handoff_path = db_path.parent / "clear-handoff.json"
+    if not handoff_path.exists():
+        return None
+    try:
+        data = json.loads(handoff_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    finally:
+        try:
+            handoff_path.unlink()
+        except OSError:
+            pass
+
+    session_id = data.get("session_id")
+    handoff_cwd = data.get("cwd")
+    timestamp_str = data.get("timestamp")
+    if not session_id or handoff_cwd != cwd:
+        return None
+
+    # Stale guard: reject handoffs older than 30 seconds
+    if timestamp_str:
+        try:
+            from datetime import datetime, timezone
+            written = datetime.fromisoformat(timestamp_str)
+            age = (datetime.now(timezone.utc) - written).total_seconds()
+            if age > 30:
+                return None
+        except Exception:
+            pass
+
+    return session_id
+
+
+def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_id: str, max_sessions: int, source: str = "startup", db_path: Path | None = None, cwd: str = "") -> list[dict]:
     """
     Select sessions for context using the exchange-count algorithm.
 
     On startup: exclude current session, find most recent substantive + recent shorts.
-    On clear: force-select current session (if >1 exchange), always find a
-    supplementary substantive session from other sessions. Falls through to
-    startup logic if current session is noise (≤1 exchange).
+    On clear: read handoff file to hard-link to the cleared-from session directly.
+              If cleared-from session is not substantive (≤2 exchanges), also append
+              the most recent substantive session as supplementary context.
+              Falls through to startup logic if no valid handoff or session not in DB.
     """
     cursor = conn.cursor()
 
@@ -136,34 +176,32 @@ def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_
         return []
     project_id = row[0]
 
-    # --- Clear path: current session first ---
-    if source == "clear":
-        cursor.execute(_CURRENT_SESSION_QUERY, (project_id, current_session_id))
-        current_row = cursor.fetchone()
+    # --- Clear path: hard-link via handoff file ---
+    if source == "clear" and db_path is not None:
+        prev_session_id = _read_handoff(db_path, cwd)
 
-        if current_row:
-            current = _row_to_entry(current_row)
+        if prev_session_id:
+            cursor.execute(_SESSION_BY_UUID_QUERY, (project_id, prev_session_id))
+            prev_row = cursor.fetchone()
 
-            if current["exchange_count"] > 1:
-                # Force-use fallback context for current session on clear,
-                # since cached context_summary may be stale (computed before
-                # the most recent exchanges)
-                current["context_summary"] = None
+            if prev_row:
+                cleared_from = _row_to_entry(prev_row)
 
-                filtered = [current]
+                if cleared_from["exchange_count"] > 0:
+                    filtered = [cleared_from]
 
-                # Add supplementary substantive session if max_sessions allows
-                if max_sessions > 1:
-                    supplementary = _find_first_substantive(cursor, project_id, current_session_id)
-                    if supplementary:
-                        filtered.append(supplementary)
+                    # If cleared-from is not substantive, add supplementary
+                    if cleared_from["exchange_count"] <= 2 and max_sessions > 1:
+                        supplementary = _find_first_substantive(cursor, project_id, prev_session_id)
+                        if supplementary:
+                            filtered.append(supplementary)
 
-                _load_messages_for(cursor, filtered)
-                return _finalize(filtered)
+                    _load_messages_for(cursor, filtered)
+                    return _finalize(filtered)
 
-        # Current session is noise or missing — fall through to startup logic
+        # No valid handoff or session not in DB — fall through to startup logic
 
-    # --- Startup path (also fallback for clear) ---
+    # --- Startup path (also fallback for clear with no handoff) ---
     cursor.execute(_CANDIDATE_QUERY, (project_id, current_session_id))
     candidates = cursor.fetchall()
 
@@ -408,7 +446,7 @@ def main():
         conn = get_db_connection(settings)
         project_key = get_project_key(cwd)
         max_sessions = settings.get("max_context_sessions", 2)
-        sessions = select_sessions(conn, project_key, session_id, max_sessions, source=source)
+        sessions = select_sessions(conn, project_key, session_id, max_sessions, source=source, db_path=db_path, cwd=cwd)
         conn.close()
 
         if not sessions:
