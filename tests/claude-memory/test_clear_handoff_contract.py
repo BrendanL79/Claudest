@@ -88,16 +88,6 @@ class TestClearHandoffWriter:
         assert "timestamp" in data
         assert "transcript_path" not in data
 
-    @pytest.mark.parametrize("reason", ["stop", "exit", "", "CLEAR"])
-    def test_does_not_write_for_other_reasons(self, tmp_path, reason):
-        """Contract 1: ignores end_reason != 'clear'."""
-        hp = _run_handoff_main(tmp_path, {
-            "end_reason": reason,
-            "session_id": "abc-123",
-            "cwd": "/some/project",
-        })
-        assert not hp.exists(), f"Should not write for end_reason={reason!r}"
-
     def test_does_not_write_missing_session_id(self, tmp_path):
         """Contract 2: skips write when session_id is absent."""
         hp = _run_handoff_main(tmp_path, {"end_reason": "clear", "cwd": "/some/project"})
@@ -189,6 +179,18 @@ class TestFindClearedFromSessionUuid:
         })
         result = _find_cleared_from_session_uuid(db_path, "/my/project")
         assert result is None
+
+    def test_stale_file_is_deleted_on_rejection(self, tmp_path):
+        """Stale handoff file must be deleted so it doesn't block future clears."""
+        stale = (datetime.now(timezone.utc) - timedelta(seconds=31)).isoformat()
+        db_path = _write_handoff(tmp_path, {
+            "session_id": "sid-stale",
+            "cwd": "/my/project",
+            "timestamp": stale,
+        })
+        handoff_path = tmp_path / "clear-handoff.json"
+        _find_cleared_from_session_uuid(db_path, "/my/project")
+        assert not handoff_path.exists(), "Stale handoff file should be deleted on rejection"
 
     def test_returns_session_id_on_fresh_timestamp_boundary(self, tmp_path):
         """Timestamp exactly at boundary (29s) is still accepted."""

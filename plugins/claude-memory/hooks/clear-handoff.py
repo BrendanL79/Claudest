@@ -26,15 +26,17 @@ def main():
     if not session_id or not cwd:
         return
 
-    settings = load_settings()
-    db_path = get_db_path(settings)
-    handoff_path = db_path.parent / "clear-handoff.json"
-
-    handoff_path.write_text(json.dumps({
-        "session_id": session_id,
-        "cwd": cwd,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }))
+    try:
+        settings = load_settings()
+        db_path = get_db_path(settings)
+        handoff_path = db_path.parent / "clear-handoff.json"
+        handoff_path.write_text(json.dumps({
+            "session_id": session_id,
+            "cwd": cwd,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }), encoding="utf-8")
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

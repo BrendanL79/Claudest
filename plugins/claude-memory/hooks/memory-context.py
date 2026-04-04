@@ -129,7 +129,7 @@ def _find_cleared_from_session_uuid(db_path: Path, cwd: str) -> str | None:
     if not handoff_path.exists():
         return None
     try:
-        data = json.loads(handoff_path.read_text())
+        data = json.loads(handoff_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         try:
             handoff_path.unlink()
@@ -151,6 +151,10 @@ def _find_cleared_from_session_uuid(db_path: Path, cwd: str) -> str | None:
             written = datetime.fromisoformat(timestamp_str)
             age = (datetime.now(timezone.utc) - written).total_seconds()
             if age > 30:
+                try:
+                    handoff_path.unlink()
+                except OSError:
+                    pass
                 return None
         except Exception:
             pass
