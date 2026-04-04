@@ -17,7 +17,6 @@ Output: JSON with hookSpecificOutput for context injection
 from __future__ import annotations
 
 import json
-import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -120,7 +119,7 @@ def _finalize(entries: list[dict]) -> list[dict]:
 
 def _find_cleared_from_session_uuid(db_path: Path, cwd: str) -> str | None:
     """
-    Read and consume the clear-handoff.json file written by the UserPromptSubmit hook.
+    Read and consume the clear-handoff.json file written by the SessionEnd hook.
     Returns the previous session_id if valid (recent, same cwd), otherwise None.
     Always deletes the file if it exists.
     """
@@ -131,17 +130,17 @@ def _find_cleared_from_session_uuid(db_path: Path, cwd: str) -> str | None:
     try:
         data = json.loads(handoff_path.read_text())
     except (OSError, json.JSONDecodeError):
-        return None
-    finally:
         try:
             handoff_path.unlink()
         except OSError:
             pass
+        return None
 
     session_id = data.get("session_id")
     handoff_cwd = data.get("cwd")
     timestamp_str = data.get("timestamp")
 
+    # Validate before consuming: wrong cwd means this handoff belongs to another session
     if not session_id or handoff_cwd != cwd:
         return None
 
@@ -155,6 +154,12 @@ def _find_cleared_from_session_uuid(db_path: Path, cwd: str) -> str | None:
         except Exception:
             pass
 
+    # Consume the file only after validation passes
+    try:
+        handoff_path.unlink()
+    except OSError:
+        pass
+
     return session_id
 
 
@@ -163,7 +168,7 @@ def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_
     Select sessions for context using the exchange-count algorithm.
 
     On startup: exclude current session, find most recent substantive + recent shorts.
-    On clear: read handoff file written by UserPromptSubmit hook to hard-link to
+    On clear: read handoff file written by SessionEnd hook to hard-link to
               the exact cleared-from session by its session_id.
               If cleared-from is not substantive (≤2 exchanges), also append the most
               recent substantive session as supplementary context.
@@ -178,7 +183,7 @@ def select_sessions(conn: sqlite3.Connection, project_key: str, current_session_
         return []
     project_id = row[0]
 
-    # --- Clear path: hard-link via handoff file written by UserPromptSubmit hook ---
+    # --- Clear path: hard-link via handoff file written by SessionEnd hook ---
     if source == "clear" and db_path is not None:
         prev_session_uuid = _find_cleared_from_session_uuid(db_path, cwd)
 
