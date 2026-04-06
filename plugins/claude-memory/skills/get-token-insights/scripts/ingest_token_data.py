@@ -16,6 +16,7 @@ import sqlite3
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from itertools import groupby
 from pathlib import Path
 
 DB_PATH = Path.home() / ".claude-memory" / "conversations.db"
@@ -1001,19 +1002,28 @@ def build_output(conn: sqlite3.Connection) -> dict:
     # For each turn index, average the segment percentages across all sessions
     # that reached that turn. Shows the typical context composition at turn N.
     def _compute_seg_curve(session_ids: list[str], max_turns: int = 60, min_sessions: int = 3) -> list[dict]:
+        if not session_ids:
+            return []
+        # Single query fetching all turns for all sessions at once
+        placeholders = ",".join("?" * len(session_ids))
+        all_turns = cur.execute(f"""
+            SELECT session_id, turn_index,
+                   input_tokens + cache_read_tokens + cache_creation_tokens as total_ctx,
+                   output_tokens
+            FROM turns
+            WHERE session_id IN ({placeholders})
+            ORDER BY session_id, turn_index
+        """, session_ids).fetchall()
+
+        # Group by session and compute segmentation
         buckets: dict[int, dict[str, list[float]]] = {}
-        for sid in session_ids:
-            turns = cur.execute("""
-                SELECT turn_index,
-                       input_tokens + cache_read_tokens + cache_creation_tokens as total_ctx,
-                       output_tokens
-                FROM turns WHERE session_id = ? ORDER BY turn_index
-            """, (sid,)).fetchall()
-            if not turns or turns[0][1] <= 0:
+        for sid, session_turns in groupby(all_turns, key=lambda r: r[0]):
+            rows = list(session_turns)
+            if not rows or rows[0][2] <= 0:
                 continue
-            base_ctx = turns[0][1]
+            base_ctx = rows[0][2]
             cumul_output = 0
-            for turn_idx, total_ctx, out_tok in turns:
+            for _, turn_idx, total_ctx, out_tok in rows:
                 if total_ctx <= 0:
                     cumul_output += out_tok
                     continue
@@ -1082,7 +1092,7 @@ def build_output(conn: sqlite3.Connection) -> dict:
             "tool": row[0], "calls": row[1], "avg_tokens": int(row[2]),
         })
 
-    # Global context segmentation aggregates (across all sessions with 2+ turns)
+    # Global context segmentation aggregates (aligned with chart cohort: 8+ turns)
     seg_agg = cur.execute("""
         SELECT
             SUM(t1_ctx * tc),
@@ -1096,7 +1106,7 @@ def build_output(conn: sqlite3.Connection) -> dict:
                    (SELECT SUM(input_tokens + cache_read_tokens + cache_creation_tokens)
                     FROM turns WHERE session_id = sm.session_id) as total_all_ctx
             FROM session_metrics sm
-            WHERE sm.is_sidechain = 0 AND sm.turn_count >= 2
+            WHERE sm.is_sidechain = 0 AND sm.turn_count >= 8
         )
         WHERE t1_ctx > 0 AND total_all_ctx > 0
     """).fetchone()
@@ -1106,8 +1116,7 @@ def build_output(conn: sqlite3.Connection) -> dict:
         "sessions_analyzed": seg_agg[2] or 0,
         "avg_base_ctx": round(seg_agg[3] or 0),
         "base_overhead_pct": round(base_overhead_paid / total_ctx_paid * 100, 1),
-        "base_overhead_tokens": base_overhead_paid,
-        "total_ctx_tokens": total_ctx_paid,
+        "recent_sessions_count": len(recent_seg_sids),
     }
 
     # ── Chart 6: Ephemeral cache tier split by project ──
@@ -2024,7 +2033,6 @@ def _build_insights(**kw) -> list[dict]:
     if base_pct > 30 and avg_base > 0:
         # Estimate waste: tokens above 20k base are potentially reducible
         reducible_base = max(0, avg_base - 20000)
-        avg_turns = (kw.get("total_input", 0) + kw.get("total_sessions", 1)) // max(kw.get("total_sessions", 1), 1)
         waste_tok = reducible_base * sessions  # excess base * sessions (conservative: 1 turn each)
         waste_dollars = _waste_usd(waste_tok)
         insights.append({

@@ -800,7 +800,7 @@ function initChart05b(D) {
   // Render summary stats
   const sumEl = document.getElementById('ctx-seg-summary');
   if (sumEl && summary.sessions_analyzed) {
-    const recentSessions = recent.length ? recent[0].sessions : 0;
+    const recentSessions = summary.recent_sessions_count || 0;
     sumEl.innerHTML = `
       <div class="ctx-seg-stat">
         <span class="seg-label">Base Overhead</span>
@@ -911,7 +911,15 @@ function initChart05b(D) {
               const r = recentByTurn[d ? d.turn : -1];
               const isRecent = ctx.dataset.label.includes('7d');
               const sessions = isRecent ? (r ? r.sessions : '?') : (d ? d.sessions : '?');
-              return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}% (${sessions} sessions)`;
+              // Compute per-segment value from the source data (not cumulative y)
+              const src = isRecent ? r : d;
+              let segVal;
+              if (!src) { segVal = ctx.parsed.y; }
+              else if (ctx.dataset.label.includes('Base')) { segVal = src.base_pct; }
+              else if (ctx.dataset.label.includes('History')) { segVal = src.history_pct; }
+              else if (ctx.dataset.label.includes('Tool')) { segVal = src.tool_user_pct; }
+              else { segVal = ctx.parsed.y; }
+              return `${ctx.dataset.label}: ${segVal.toFixed(1)}% (${sessions} sessions)`;
             },
           }
         },
