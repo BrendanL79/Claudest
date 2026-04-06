@@ -218,6 +218,26 @@
     .trend-list li .dot.red { background: var(--red); box-shadow: 0 0 6px rgba(255,77,106,0.4); }
     .trend-list li .dot.blue { background: var(--blue); box-shadow: 0 0 6px rgba(77,159,255,0.4); }
     .trend-list li .dot.dim { background: var(--text-dim); }
+
+    /* Context Segmentation summary */
+    .ctx-seg-summary {
+      display: flex; gap: 24px; padding: 12px 0 8px; flex-wrap: wrap;
+    }
+    .ctx-seg-stat {
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .ctx-seg-stat .seg-label {
+      font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .ctx-seg-stat .seg-value {
+      font-family: 'Outfit', sans-serif; font-size: 1.3rem; font-weight: 700;
+    }
+    .ctx-seg-stat .seg-value.cyan { color: var(--cyan); }
+    .ctx-seg-stat .seg-value.amber { color: var(--amber); }
+    .ctx-seg-stat .seg-value.purple { color: var(--purple); }
+    .ctx-seg-stat .seg-sub {
+      font-size: 0.65rem; color: var(--text-dim);
+    }
   </style>
 </head>
 <body>
@@ -371,6 +391,21 @@
         <div class="chart-title">Ephemeral Cache Tiers</div>
         <div class="chart-desc">5-minute vs 1-hour cache tier usage by project</div>
         <div class="chart-wrap" style="height:300px"><canvas id="chart06"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid-1">
+      <div class="chart-panel">
+        <div class="chart-title">Context Segmentation</div>
+        <div class="chart-desc">average context composition by turn — filled = all-time, dashed = last 7 days</div>
+        <div class="ctx-seg-summary" id="ctx-seg-summary"></div>
+        <div class="chart-wrap" style="height:340px"><canvas id="chart05b"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid-1">
+      <div class="chart-panel">
+        <div class="chart-title">Tool Context Footprint</div>
+        <div class="chart-desc">avg tokens each tool adds to context per call — measured from single-tool turns</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="chart05c"></canvas></div>
       </div>
     </div>
   </div>
@@ -580,7 +615,7 @@ function initDashboard(D) {
 
   // Charts
   initChart01(D); initChart02(D); initChart03(D); initChart04(D); initChart04b(D);
-  initChart05(D); initChart06(D);
+  initChart05(D); initChart05b(D); initChart05c(D); initChart06(D);
   initChart07(D); initChart08(D); initChart09(D); initChart10(D); initChart11(D);
   initChart12(D); initChart13(D); initChart14(D);
   initChart15(D); initChart15b(D); initChart16(D);
@@ -753,6 +788,202 @@ function initChart05(D) {
       },
       plugins: { legend: { display: true, labels: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } } } }
     }
+  });
+}
+
+// ── Chart 05b: Context Segmentation ───────────────────────
+function initChart05b(D) {
+  const segs = D.context_segments || [];
+  const recent = D.context_segments_recent || [];
+  const summary = D.context_seg_summary || {};
+
+  // Render summary stats
+  const sumEl = document.getElementById('ctx-seg-summary');
+  if (sumEl && summary.sessions_analyzed) {
+    const recentSessions = summary.recent_sessions_count || 0;
+    sumEl.innerHTML = `
+      <div class="ctx-seg-stat">
+        <span class="seg-label">Base Overhead</span>
+        <span class="seg-value cyan">${summary.base_overhead_pct}%</span>
+        <span class="seg-sub">of all tokens paid</span>
+      </div>
+      <div class="ctx-seg-stat">
+        <span class="seg-label">Avg Base Context</span>
+        <span class="seg-value amber">${fmt(summary.avg_base_ctx)}</span>
+        <span class="seg-sub">tokens/session turn 1</span>
+      </div>
+      <div class="ctx-seg-stat">
+        <span class="seg-label">Sessions Analyzed</span>
+        <span class="seg-value purple">${summary.sessions_analyzed}</span>
+        <span class="seg-sub">all-time (8+ turns)</span>
+      </div>
+      <div class="ctx-seg-stat">
+        <span class="seg-label">Last 7 Days</span>
+        <span class="seg-value" style="color:var(--green)">${recentSessions}</span>
+        <span class="seg-sub">sessions in recent window</span>
+      </div>
+    `;
+  }
+
+  if (!segs.length) {
+    document.getElementById('chart05b').parentElement.innerHTML = '<div class="no-data">not enough multi-turn sessions</div>';
+    return;
+  }
+
+  // Build recent lookup by turn index for aligned data
+  const recentByTurn = {};
+  recent.forEach(d => { recentByTurn[d.turn] = d; });
+  const hasRecent = recent.length >= 3;
+
+  // Pre-compute cumulative values for all-time (for stacked area)
+  // and recent (for dashed boundary lines)
+  const allCumBase = segs.map(d => d.base_pct);
+  const allCumHist = segs.map(d => d.base_pct + d.history_pct);
+  const allCumAll  = segs.map(d => d.base_pct + d.history_pct + d.tool_user_pct);
+
+  // Datasets: cumulative line fills for all-time, dashed for recent
+  const datasets = [
+    {
+      label: 'Base Overhead (all-time)',
+      data: allCumBase,
+      backgroundColor: 'rgba(0,229,255,0.2)',
+      borderColor: 'rgba(0,229,255,0.5)',
+      borderWidth: 1.5, fill: 'origin', tension: 0.3, pointRadius: 0,
+    },
+    {
+      label: 'History (all-time)',
+      data: allCumHist,
+      backgroundColor: 'rgba(255,171,46,0.2)',
+      borderColor: 'rgba(255,171,46,0.5)',
+      borderWidth: 1.5, fill: '-1', tension: 0.3, pointRadius: 0,
+    },
+    {
+      label: 'Tool + User (all-time)',
+      data: allCumAll,
+      backgroundColor: 'rgba(180,77,255,0.2)',
+      borderColor: 'rgba(180,77,255,0.5)',
+      borderWidth: 1.5, fill: '-1', tension: 0.3, pointRadius: 0,
+    },
+  ];
+
+  // Add recent overlay as dashed boundary lines (not stacked, already cumulative)
+  if (hasRecent) {
+    datasets.push(
+      {
+        label: 'Base (last 7d)',
+        data: segs.map(d => { const r = recentByTurn[d.turn]; return r ? r.base_pct : null; }),
+        borderColor: '#00e5ff',
+        borderWidth: 2.5, borderDash: [6, 3],
+        fill: false, tension: 0.3, pointRadius: 0, spanGaps: true,
+      },
+      {
+        label: 'History (last 7d)',
+        data: segs.map(d => { const r = recentByTurn[d.turn]; return r ? r.base_pct + r.history_pct : null; }),
+        borderColor: '#ffab2e',
+        borderWidth: 2.5, borderDash: [6, 3],
+        fill: false, tension: 0.3, pointRadius: 0, spanGaps: true,
+      },
+    );
+  }
+
+  new Chart(document.getElementById('chart05b'), {
+    type: 'line',
+    data: { labels: segs.map(d => d.turn), datasets },
+    options: {
+      ...chartDefaults,
+      scales: {
+        x: {
+          ...chartDefaults.scales.x,
+          title: { display: true, text: 'Turn Number', color: '#4a4e5c' },
+        },
+        y: {
+          ...chartDefaults.scales.y,
+          min: 0, max: 100,
+          title: { display: true, text: 'Cumulative % of Context', color: '#4a4e5c' },
+        },
+      },
+      plugins: {
+        legend: { display: true, labels: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const d = segs[ctx.dataIndex];
+              const r = recentByTurn[d ? d.turn : -1];
+              const isRecent = ctx.dataset.label.includes('7d');
+              const sessions = isRecent ? (r ? r.sessions : '?') : (d ? d.sessions : '?');
+              // Compute per-segment value from the source data (not cumulative y)
+              const src = isRecent ? r : d;
+              let segVal;
+              if (!src) { segVal = ctx.parsed.y; }
+              else if (ctx.dataset.label.includes('Base')) { segVal = src.base_pct; }
+              else if (ctx.dataset.label.includes('History')) { segVal = src.history_pct; }
+              else if (ctx.dataset.label.includes('Tool')) { segVal = src.tool_user_pct; }
+              else { segVal = ctx.parsed.y; }
+              return `${ctx.dataset.label}: ${segVal.toFixed(1)}% (${sessions} sessions)`;
+            },
+          }
+        },
+      },
+    },
+  });
+}
+
+// ── Chart 05c: Tool Context Footprint ─────────────────────
+function initChart05c(D) {
+  const data = D.tool_footprint || [];
+  if (!data.length) {
+    document.getElementById('chart05c').parentElement.innerHTML = '<div class="no-data">not enough single-tool turns</div>';
+    return;
+  }
+
+  // Color-code by tool category
+  const systemTools = new Set(['Read', 'Edit', 'Write', 'Bash', 'Grep', 'Glob', 'ToolSearch']);
+  const agentTools = new Set(['Agent', 'Skill']);
+  const colors = data.map(d => {
+    if (systemTools.has(d.tool)) return 'rgba(0,229,255,0.45)';
+    if (agentTools.has(d.tool)) return 'rgba(180,77,255,0.45)';
+    return 'rgba(255,171,46,0.45)';
+  });
+  const borderColors = data.map(d => {
+    if (systemTools.has(d.tool)) return 'rgba(0,229,255,0.8)';
+    if (agentTools.has(d.tool)) return 'rgba(180,77,255,0.8)';
+    return 'rgba(255,171,46,0.8)';
+  });
+
+  new Chart(document.getElementById('chart05c'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.tool),
+      datasets: [{
+        data: data.map(d => d.avg_tokens),
+        backgroundColor: colors,
+        borderColor: borderColors,
+        borderWidth: 1,
+        borderRadius: 3,
+      }],
+    },
+    options: {
+      ...chartDefaults,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const d = data[ctx.dataIndex];
+              return `${d.avg_tokens.toLocaleString()} tokens/call · ${d.calls} calls`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          ...chartDefaults.scales.x,
+          title: { display: true, text: 'Avg Tokens Added to Context', color: '#4a4e5c' },
+        },
+        y: { ...chartDefaults.scales.y },
+      },
+    },
   });
 }
 
