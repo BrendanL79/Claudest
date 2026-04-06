@@ -29,7 +29,11 @@ def parse_jsonl_file(filepath: Path) -> Generator[dict, None, None]:
             try:
                 obj = json.loads(line)
                 if obj.get("isMeta"):
-                    continue
+                    # Keep channel messages (Discord inbound) — they are
+                    # real conversation content tagged isMeta by the harness.
+                    origin_kind = obj.get("origin", {}).get("kind")
+                    if origin_kind != "channel":
+                        continue
                 if obj.get("type") in ("user", "assistant"):
                     yield obj
             except json.JSONDecodeError:
