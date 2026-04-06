@@ -47,7 +47,7 @@ SQLite at `~/.claude-memory/conversations.db` with WAL mode and 5s busy_timeout.
 
 ### Shared Code
 
-`plugins/claude-memory/skills/recall-conversations/scripts/memory_lib/` is the shared utility package used by all hooks and skill scripts (5 modules: `db.py`, `content.py`, `parsing.py`, `formatting.py`, `summarizer.py`).
+`plugins/claude-memory/skills/recall-conversations/scripts/memory_lib/` is the shared utility package used by all hooks and skill scripts (6 modules: `__init__.py`, `db.py`, `content.py`, `parsing.py`, `formatting.py`, `summarizer.py`).
 
 ## Conventions
 

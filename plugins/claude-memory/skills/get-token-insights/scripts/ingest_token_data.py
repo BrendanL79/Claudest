@@ -997,6 +997,119 @@ def build_output(conn: sqlite3.Connection) -> dict:
             "turns": turns_data,
         })
 
+    # ── Chart 5b: Context Segmentation (aggregate across all sessions) ──
+    # For each turn index, average the segment percentages across all sessions
+    # that reached that turn. Shows the typical context composition at turn N.
+    def _compute_seg_curve(session_ids: list[str], max_turns: int = 60, min_sessions: int = 3) -> list[dict]:
+        buckets: dict[int, dict[str, list[float]]] = {}
+        for sid in session_ids:
+            turns = cur.execute("""
+                SELECT turn_index,
+                       input_tokens + cache_read_tokens + cache_creation_tokens as total_ctx,
+                       output_tokens
+                FROM turns WHERE session_id = ? ORDER BY turn_index
+            """, (sid,)).fetchall()
+            if not turns or turns[0][1] <= 0:
+                continue
+            base_ctx = turns[0][1]
+            cumul_output = 0
+            for turn_idx, total_ctx, out_tok in turns:
+                if total_ctx <= 0:
+                    cumul_output += out_tok
+                    continue
+                base = min(base_ctx, total_ctx)
+                history = min(cumul_output, total_ctx - base)
+                tool_user = max(0, total_ctx - base - history)
+                bucket = buckets.setdefault(turn_idx, {"base": [], "hist": [], "tool": []})
+                bucket["base"].append(base / total_ctx * 100)
+                bucket["hist"].append(history / total_ctx * 100)
+                bucket["tool"].append(tool_user / total_ctx * 100)
+                cumul_output += out_tok
+        curve = []
+        for t_idx in sorted(buckets.keys())[:max_turns]:
+            b = buckets[t_idx]
+            n = len(b["base"])
+            if n < min_sessions:
+                continue
+            curve.append({
+                "turn": t_idx, "sessions": n,
+                "base_pct": round(sum(b["base"]) / n, 1),
+                "history_pct": round(sum(b["hist"]) / n, 1),
+                "tool_user_pct": round(sum(b["tool"]) / n, 1),
+            })
+        return curve
+
+    # All-time curve
+    all_seg_sids = [r[0] for r in cur.execute("""
+        SELECT session_id FROM session_metrics
+        WHERE is_sidechain = 0 AND turn_count >= 8
+    """).fetchall()]
+    context_segments = _compute_seg_curve(all_seg_sids)
+
+    # Recent curve (last 7 days)
+    recent_seg_sids = [r[0] for r in cur.execute("""
+        SELECT session_id FROM session_metrics
+        WHERE is_sidechain = 0 AND turn_count >= 8
+              AND first_turn_ts >= datetime('now', '-7 days')
+    """).fetchall()]
+    context_segments_recent = _compute_seg_curve(recent_seg_sids, min_sessions=2)
+
+    # ── Tool context footprint (avg tokens added per call by tool type) ──
+    # Uses single-tool turns to isolate each tool's contribution cleanly.
+    tool_footprint = []
+    for row in cur.execute("""
+        WITH single_tool_turns AS (
+            SELECT tc.turn_id, tc.tool_name, tc.session_id
+            FROM turn_tool_calls tc
+            GROUP BY tc.turn_id
+            HAVING COUNT(*) = 1
+        )
+        SELECT stt.tool_name, COUNT(*) as cnt,
+               ROUND(AVG(
+                 (tn.input_tokens + tn.cache_read_tokens + tn.cache_creation_tokens) -
+                 (t.input_tokens + t.cache_read_tokens + t.cache_creation_tokens) -
+                 t.output_tokens
+               )) as avg_footprint
+        FROM single_tool_turns stt
+        JOIN turns t ON stt.turn_id = t.id
+        JOIN turns tn ON tn.session_id = t.session_id AND tn.turn_index = t.turn_index + 1
+        JOIN session_metrics sm ON stt.session_id = sm.session_id AND sm.is_sidechain = 0
+        GROUP BY stt.tool_name
+        HAVING cnt >= 10 AND avg_footprint > 0
+        ORDER BY avg_footprint DESC LIMIT 12
+    """):
+        tool_footprint.append({
+            "tool": row[0], "calls": row[1], "avg_tokens": int(row[2]),
+        })
+
+    # Global context segmentation aggregates (across all sessions with 2+ turns)
+    seg_agg = cur.execute("""
+        SELECT
+            SUM(t1_ctx * tc),
+            SUM(total_all_ctx),
+            COUNT(*),
+            AVG(t1_ctx)
+        FROM (
+            SELECT sm.session_id, sm.turn_count as tc,
+                   (SELECT input_tokens + cache_read_tokens + cache_creation_tokens
+                    FROM turns WHERE session_id = sm.session_id AND turn_index = 1) as t1_ctx,
+                   (SELECT SUM(input_tokens + cache_read_tokens + cache_creation_tokens)
+                    FROM turns WHERE session_id = sm.session_id) as total_all_ctx
+            FROM session_metrics sm
+            WHERE sm.is_sidechain = 0 AND sm.turn_count >= 2
+        )
+        WHERE t1_ctx > 0 AND total_all_ctx > 0
+    """).fetchone()
+    base_overhead_paid = seg_agg[0] or 0
+    total_ctx_paid = seg_agg[1] or 1
+    context_seg_summary = {
+        "sessions_analyzed": seg_agg[2] or 0,
+        "avg_base_ctx": round(seg_agg[3] or 0),
+        "base_overhead_pct": round(base_overhead_paid / total_ctx_paid * 100, 1),
+        "base_overhead_tokens": base_overhead_paid,
+        "total_ctx_tokens": total_ctx_paid,
+    }
+
     # ── Chart 6: Ephemeral cache tier split by project ──
     ephem_split = []
     for row in cur.execute("""
@@ -1367,6 +1480,7 @@ def build_output(conn: sqlite3.Connection) -> dict:
         total_cost_usd=total_cost_usd,
         avg_input_cost_per_mtok=avg_input_cpm,
         avg_output_cost_per_mtok=avg_output_cpm,
+        context_seg_summary=context_seg_summary,
     )
 
     # Dashboard backward compat: split insights into findings + recommendations
@@ -1398,6 +1512,10 @@ def build_output(conn: sqlite3.Connection) -> dict:
         "cost_by_day": cost_by_day_list,
         "cost_by_project": cost_by_project_list,
         "cache_trajectory": cache_trajectory,
+        "context_segments": context_segments,
+        "context_segments_recent": context_segments_recent,
+        "tool_footprint": tool_footprint,
+        "context_seg_summary": context_seg_summary,
         "ephem_split": ephem_split,
         "bash_antipatterns": bash_antipatterns,
         "tool_errors_by_tool": tool_errors_by_tool,
@@ -1899,6 +2017,37 @@ def _build_insights(**kw) -> list[dict]:
                 },
             })
 
+    # ── Context Overhead ──
+    seg = kw.get("context_seg_summary", {})
+    base_pct = seg.get("base_overhead_pct", 0)
+    avg_base = seg.get("avg_base_ctx", 0)
+    if base_pct > 30 and avg_base > 0:
+        # Estimate waste: tokens above 20k base are potentially reducible
+        reducible_base = max(0, avg_base - 20000)
+        avg_turns = (kw.get("total_input", 0) + kw.get("total_sessions", 1)) // max(kw.get("total_sessions", 1), 1)
+        waste_tok = reducible_base * sessions  # excess base * sessions (conservative: 1 turn each)
+        waste_dollars = _waste_usd(waste_tok)
+        insights.append({
+            "title": "Context Overhead",
+            "severity": "WARNING" if base_pct > 40 else "INFO",
+            "finding": f"{base_pct}% of all context tokens are base overhead repeated every turn. "
+                       f"Average base context: {avg_base:,} tokens.",
+            "root_cause": "Every turn rebuilds the full prompt: system instructions, tool schemas, "
+                          "CLAUDE.md, memory injections, skill descriptions, and MCP schemas. "
+                          "This base payload is cached when cache hits, but counts against rate limits "
+                          "and pays full price whenever cache expires.",
+            "waste_tokens": waste_tok,
+            "waste_usd": waste_dollars,
+            "solution": {
+                "action": "Enable ENABLE_TOOL_SEARCH to defer tool schemas, trim CLAUDE.md, and disable unused skills",
+                "detail": f"Your avg base is {avg_base:,} tokens. Tool schemas typically account for 14-20K of that. "
+                          f"With deferred loading + pruning unused skills, base can drop to ~20K. "
+                          f"Every 1K tokens trimmed from base saves that amount on every turn of every session.",
+                "claudemd_rule": None,
+                "estimated_savings_usd": round(waste_dollars * 0.4, 2),
+            },
+        })
+
     # Sort by waste (dollar) descending, with zero-waste items last
     insights.sort(key=lambda i: (i["waste_usd"] > 0, i["waste_usd"]), reverse=True)
 
@@ -2011,7 +2160,7 @@ def main() -> None:
     # Slim JSON for stdout (only what Claude needs for analysis)
     slim_keys = {
         "generated_at", "total_sessions", "date_range", "kpis", "insights",
-        "cost_by_project", "model_split",
+        "cost_by_project", "model_split", "context_seg_summary",
         "skill_usage", "agent_delegation", "hook_performance",
         "trends",
     }
